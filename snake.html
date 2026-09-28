@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zenith Snake: Boss Rewind</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #121212;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            touch-action: none;
+        }
+
+        #gameContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        canvas {
+            border: 4px solid #ff5500;
+            box-shadow: 0 0 25px rgba(255, 85, 0, 0.4);
+            background-color: #1a1a1a;
+            max-width: 95vmin; 
+            max-height: 65vh;
+            display: block;
+        }
+
+        #scoreBoard {
+            font-size: 16px;
+            margin-bottom: 6px;
+            text-shadow: 0 0 10px #00ffcc;
+            width: 95vmin;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .menu-btn {
+            background: #1a1a1a;
+            border: 2px solid #00ffcc;
+            color: #00ffcc;
+            font-size: 16px;
+            padding: 10px 20px;
+            margin-top: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-shadow: 0 0 5px #00ffcc;
+            box-shadow: 0 0 10px rgba(0,255,204,0.3);
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .menu-btn:active {
+            background: #00ffcc;
+            color: #000;
+        }
+
+        /* Магазин */
+        #shopModal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 10, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            display: none;
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .skin-item {
+            border: 2px solid #444;
+            padding: 10px 15px;
+            margin: 8px 0;
+            width: 80%;
+            max-width: 300px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1a1a1a;
+            border-radius: 6px;
+        }
+        .skin-item.active {
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px #00ffcc;
+        }
+
+        /* Экран поражения / Босс-файта */
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #ff0055;
+            text-shadow: 0 0 20px #ff0055;
+            display: none;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <div id="scoreBoard">
+            <span>УРОВЕНЬ: <span id="level">1</span></span>
+            <span>СЧЕТ: <span id="score">0</span></span>
+            <span>БАБЛО: <span id="money">0</span>$</span>
+        </div>
+        
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        
+        <button class="menu-btn" onclick="openShop()">🛍️ МАГАЗИН СКИНОВ</button>
+        <div style="color: #666; font-size: 11px; margin-top: 4px;">УПРАВЛЕНИЕ: СВАЙПАЙ ПО ЭКРАНУ</div>
+
+        <!-- Магазин скинов -->
+        <div id="shopModal">
+            <h2 style="color: #00ffcc; text-shadow: 0 0 10px #00ffcc; margin-bottom: 15px;">ЭЛЕГАНТНЫЙ БУТИК</h2>
+            <div id="skinList" style="width: 100%; display: flex; flex-direction: column; align-items: center;"></div>
+            <button class="menu-btn" style="margin-top: 20px; border-color: #ff0055; color: #ff0055;" onclick="closeShop()">ЗАКРЫТЬ</button>
+        </div>
+
+        <!-- Оверлей (Проигрыш / Босс) -->
+        <div id="overlay">
+            <div id="overlayTitle" style="font-size: 26px; font-weight: bold; margin-bottom: 10px;">ТЫ ВРЕЗАЛСЯ В СТЕНУ, ТЫ ПРОИГРАЛ, ЛОХ</div>
+            <div id="overlaySub" style="font-size: 15px; color: #fff; margin-bottom: 20px;">Счет: <span id="finalScore">0</span></div>
+            <button id="overlayBtn" class="menu-btn" onclick="initGame()">ЕЩЁ РАЗ</button>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const levelElement = document.getElementById('level');
+    const scoreElement = document.getElementById('score');
+    const moneyElement = document.getElementById('money');
+    const finalScoreElement = document.getElementById('finalScore');
+    const overlay = document.getElementById('overlay');
+    const overlayTitle = document.getElementById('overlayTitle');
+    const overlaySub = document.getElementById('overlaySub');
+    const overlayBtn = document.getElementById('overlayBtn');
+    const shopModal = document.getElementById('shopModal');
+    const skinList = document.getElementById('skinList');
+
+    const gridSize = 20;
+    const tileCount = 20;
+
+    let score = 0;
+    let level = 1;
+    let foodEatenInLevel = 0;
+    let money = parseInt(localStorage.getItem('zenith_money')) || 0;
+    let snake = [];
+    let food = { x: 0, y: 0, type: 'apple' };
+    let obstacles = []; // Бочки/препятствия на уровнях
+    let bossActive = false;
+    let bossHp = 10;
+
+    let dx = 1;
+    let dy = 0;
+    
+    let gameSpeed = 140;
+    let gameInterval;
+    let isGameOver = false;
+
+    // Скины (цены 10 и 30 бабла)
+    const skins = [
+        { id: 'neon', name: 'Неон (Базовый)', price: 0, color: '#00ffcc', headColor: '#66ffcc' },
+        { id: 'gold', name: 'Кибер-Золото', price: 10, color: '#ffcc00', headColor: '#ffee66' },
+        { id: 'matrix', name: 'Матрикс', price: 20, color: '#00ff00', headColor: '#66ff66' },
+        { id: 'blood', name: 'Кровавый Закат', price: 30, color: '#ff0055', headColor: '#ff6699' }
+    ];
+
+    let unlockedSkins = JSON.parse(localStorage.getItem('zenith_unlocked')) || ['neon'];
+    let currentSkin = localStorage.getItem('zenith_current_skin') || 'neon';
+
+    moneyElement.innerText = money;
+
+    function openShop() {
+        isGameOver = true;
+        clearInterval(gameInterval);
+        renderShop();
+        shopModal.style.display = 'flex';
+    }
+
+    function closeShop() {
+        shopModal.style.display = 'none';
+        initGame();
+    }
+
+    function renderShop() {
+        skinList.innerHTML = '';
+        skins.forEach(skin => {
+            const isUnlocked = unlockedSkins.includes(skin.id);
+            const isActive = currentSkin === skin.id;
+
+            const div = document.createElement('div');
+            div.className = `skin-item ${isActive ? 'active' : ''}`;
+            
+            let actionBtn = '';
+            if (isActive) {
+                actionBtn = '<span style="color: #00ffcc;">АКТИВЕН</span>';
+            } else if (isUnlocked) {
+                actionBtn = `<button class="menu-btn" style="padding: 5px 10px; font-size: 12px;" onclick="selectSkin('${skin.id}')">НАДЕТЬ</button>`;
+            } else {
+                actionBtn = `<button class="menu-btn" style="padding: 5px 10px; font-size: 12px; border-color: #ffcc00; color: #ffcc00;" onclick="buySkin('${skin.id}', ${skin.price})">КУПИТЬ (${skin.price}$)</button>`;
+            }
+
+            div.innerHTML = `<span style="color: ${skin.color};">${skin.name}</span> ${actionBtn}`;
+            skinList.appendChild(div);
+        });
+    }
+
+    function buySkin(id, price) {
+        if (money >= price) {
+            money -= price;
+            moneyElement.innerText = money;
+            localStorage.setItem('zenith_money', money);
+            unlockedSkins.push(id);
+            localStorage.setItem('zenith_unlocked', JSON.stringify(unlockedSkins));
+            currentSkin = id;
+            localStorage.setItem('zenith_current_skin', currentSkin);
+            renderShop();
+        } else {
+            alert('Мало бабла, блять! Иди фарми еду!');
+        }
+    }
+
+    function selectSkin(id) {
+        currentSkin = id;
+        localStorage.setItem('zenith_current_skin', currentSkin);
+        renderShop();
+    }
+
+    function getActiveSkinColors() {
+        return skins.find(s => s.id === currentSkin) || skins[0];
+    }
+
+    function initGame() {
+        shopModal.style.display = 'none';
+        overlay.style.display = 'none';
+        snake = [
+            { x: 10, y: 10 },
+            { x: 9, y: 10 },
+            { x: 8, y: 10 }
+        ];
+        score = 0;
+        level = 1;
+        foodEatenInLevel = 0;
+        dx = 1;
+        dy = 0;
+        gameSpeed = 140;
+        isGameOver = false;
+        bossActive = false;
+        scoreElement.innerText = score;
+        levelElement.innerText = level;
+        moneyElement.innerText = money;
+        generateLevelObstacles();
+        placeFood();
+        startInterval();
+    }
+
+    function startInterval() {
+        clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, gameSpeed);
+    }
+
+    function gameLoop() {
+        if (isGameOver) return;
+        update();
+        draw();
+    }
+
+    // Генерация бочек-препятствий в зависимости от уровня
+    function generateLevelObstacles() {
+        obstacles = [];
+        if (level % 5 === 0) {
+            // Босс-файт уровень: бочки по центру
+            bossActive = true;
+            bossHp = 10;
+            showBossIntro();
+            return;
+        }
+        bossActive = false;
+        // На высоких уровнях добавляем бочки-препятствия
+        let obstacleCount = Math.min(Math.floor(level / 2), 6);
+        for (let i = 0; i < obstacleCount; i++) {
+            let obs;
+            do {
+                obs = {
+                    x: Math.floor(Math.random() * (tileCount - 4)) + 2,
+                    y: Math.floor(Math.random() * (tileCount - 4)) + 2
+                };
+            } while (snake.some(p => p.x === obs.x && p.y === obs.y) || obstacles.some(o => o.x === obs.x && o.y === obs.y));
+            obstacles.push(obs);
+        }
+    }
+
+    function showBossIntro() {
+        clearInterval(gameInterval);
+        overlayTitle.innerText = `⚠️ БОСС-ФАЙТ (УРОВЕНЬ ${level}) ⚠️`;
+        overlaySub.innerText = `Уничтожь босса, съедая еду! HP Босса: ${bossHp}`;
+        overlayBtn.innerText = "В БОЙ!";
+        overlay.style.display = 'flex';
+        isGameOver = true;
+    }
+
+    function update() {
+        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+        // Проверка стен (периметр)
+        if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+            gameOver("ТЫ ВРЕЗАЛСЯ В СТЕНУ, ТЫ ПРОИГРАЛ, ЛОХ");
+            return;
+        }
+
+        // Проверка хвоста
+        for (let i = 1; i < snake.length; i++) {
+            if (snake[i].x === head.x && snake[i].y === head.y) {
+                gameOver("ТЫ СОЖРАЛ СЕБЯ, ТЫ ПРОИГРАЛ, ЛОХ");
+                return;
+            }
+        }
+
+        // Проверка бочек-препятствий
+        for (let obs of obstacles) {
+            if (obs.x === head.x && obs.y === head.y) {
+                gameOver("ТЫ ВРЕЗАЛСЯ В БОЧКУ, ТЫ ПРОИГРАЛ, ЛОХ");
+                return;
+            }
+        }
+
+        snake.unshift(head);
+
+        // Проверка еды
+        if (head.x === food.x && head.y === food.y) {
+            score += 10;
+            let reward = (food.type === 'apple') ? 1 : (food.type === 'lemon') ? 2 : 3;
+            money += reward;
+            scoreElement.innerText = score;
+            moneyElement.innerText = money;
+            localStorage.setItem('zenith_money', money);
+
+            foodEatenInLevel++;
+
+            if (bossActive) {
+                bossHp--;
+                if (bossHp <= 0) {
+                    levelUp();
+                } else {
+                    placeFood();
+                }
+            } else if (foodEatenInLevel >= 5) {
+                levelUp();
+            } else {
+                placeFood();
+            }
+        } else {
+            snake.pop();
+        }
+    }
+
+    function levelUp() {
+        level++;
+        foodEatenInLevel = 0;
+        levelElement.innerText = level;
+        if (gameSpeed > 55) gameSpeed -= 8;
+        generateLevelObstacles();
+        if (!bossActive) {
+            placeFood();
+            startInterval();
+        }
+    }
+
+    function drawBrick(x, y, width, height) {
+        ctx.fillStyle = '#b23b23';
+        ctx.fillRect(x, y, width, height);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fillRect(x, y, width, 2);
+        ctx.fillRect(x, y, 2, height);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.fillRect(x, y + height - 2, width, 2);
+        ctx.fillRect(x + width - 2, y, 2, height);
+    }
+
+    // Рисуем уникальные текстуры еды
+    function drawFood() {
+        let fx = food.x * gridSize;
+        let fy = food.y * gridSize;
+
+        if (food.type === 'apple') {
+            // Красное яблоко
+            ctx.fillStyle = '#ff0033';
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#ff0033';
+            ctx.fillRect(fx + 3, fy + 3, gridSize - 6, gridSize - 6);
+            ctx.fillStyle = '#00ff00'; // Листик
+            ctx.fillRect(fx + 9, fy + 1, 3, 3);
+        } else if (food.type === 'lemon') {
+            // Желтый лимон
+            ctx.fillStyle = '#ffcc00';
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#ffcc00';
+            ctx.beginPath();
+            ctx.arc(fx + gridSize/2, fy + gridSize/2, gridSize/2 - 3, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Зеленая груша
+            ctx.fillStyle = '#66cc00';
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#66cc00';
+            ctx.fillRect(fx + 5, fy + 7, gridSize - 10, gridSize - 8);
+            ctx.fillRect(fx + 7, fy + 3, gridSize - 14, 5);
+        }
+        ctx.shadowBlur = 0;
+    }
+
+    function draw() {
+        // Фон поля
+        ctx.fillStyle = '#1c1c1c';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Стены из кирпича по периметру
+        for (let i = 0; i < tileCount; i++) {
+            drawBrick(i * gridSize, 0, gridSize, gridSize);
+            drawBrick(i * gridSize, (tileCount - 1) * gridSize, gridSize, gridSize);
+            drawBrick(0, i * gridSize, gridSize, gridSize);
+            drawBrick((tileCount - 1) * gridSize, i * gridSize, gridSize, gridSize);
+        }
+
+        // Отрисовка бочек-препятствий
+        obstacles.forEach(obs => {
+            ctx.fillStyle = '#8b4513'; // Деревянная/железная бочка
+            ctx.fillRect(obs.x * gridSize + 2, obs.y * gridSize + 2, gridSize - 4, gridSize - 4);
+            ctx.fillStyle = '#ff5500';
+            ctx.fillRect(obs.x * gridSize + 4, obs.y * gridSize + 8, gridSize - 8, 3);
+        });
+
+        // Еда
+        drawFood();
+
+        // Змейка со скином
+        const skinColors = getActiveSkinColors();
+        snake.forEach((part, index) => {
+            if (index === 0) {
+                ctx.fillStyle = skinColors.headColor;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = skinColors.color;
+            } else {
+                ctx.fillStyle = skinColors.color;
+                ctx.shadowBlur = 0;
+            }
+            ctx.fillRect(part.x * gridSize + 2, part.y * gridSize + 2, gridSize - 4, gridSize - 4);
+        });
+    }
+
+    function placeFood() {
+        // Тип еды зависит от уровня: 1-4 яблоко, 5-9 лимон, 10+ груша
+        if (level % 5 === 0) {
+            food.type = 'lemon';
+        } else if (level % 3 === 0) {
+            food.type = 'pear';
+        } else {
+            food.type = 'apple';
+        }
+
+        do {
+            food.x = Math.floor(Math.random() * (tileCount - 2)) + 1;
+            food.y = Math.floor(Math.random() * (tileCount - 2)) + 1;
+        } while (snake.some(p => p.x === food.x && p.y === food.y) || obstacles.some(o => o.x === food.x && o.y === food.y));
+    }
+
+    function gameOver(reason) {
+        isGameOver = true;
+        clearInterval(gameInterval);
+        overlayTitle.innerText = reason;
+        overlaySub.innerText = `Счет: ${score} | Бабло: ${money}$`;
+        overlayBtn.innerText = "ЕЩЁ РАЗ";
+        overlay.style.display = 'flex';
+    }
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const minSwipeDistance = 30; 
+
+    canvas.addEventListener('touchstart', (e) => {
+        if (!isGameOver && shopModal.style.display !== 'flex') {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }
+    }, false);
+
+    canvas.addEventListener('touchend', (e) => {
+        if (isGameOver || shopModal.style.display === 'flex') return;
+
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            if (Math.abs(diffX) > minSwipeDistance) {
+                if (diffX > 0 && dx !== -1) { dx = 1; dy = 0; }
+                else if (diffX < 0 && dx !== 1) { dx = -1; dy = 0; }
+            }
+        } else {
+            if (Math.abs(diffY) > minSwipeDistance) {
+                if (diffY > 0 && dy !== -1) { dx = 0; dy = 1; }
+                else if (diffY < 0 && dy !== 1) { dx = 0; dy - -1; dx = 0; dy = -1; }
+            }
+        }
+        e.preventDefault();
+    }, false);
+
+    initGame();
+</script>
+</body>
+</html>
