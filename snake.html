@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zenith Snake: Brick Loft Edition</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #121212;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            touch-action: none;
+        }
+
+        #gameContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        canvas {
+            border: 4px solid #ff5500;
+            box-shadow: 0 0 25px rgba(255, 85, 0, 0.4);
+            background-color: #1a1a1a;
+            max-width: 95vmin; 
+            max-height: 80vh;
+            display: block;
+        }
+
+        #scoreBoard {
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #00ffcc;
+            width: 95vmin;
+            text-align: center;
+        }
+        
+        #controlsHint {
+            margin-top: 10px;
+            color: #888;
+            font-size: 14px;
+        }
+        
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #ff0055;
+            text-shadow: 0 0 20px #ff0055;
+            display: none;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #message {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        #subMessage {
+            font-size: 18px;
+            color: #fff;
+            margin-top: 10px;
+            text-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <div id="scoreBoard">
+            ОЧКИ: <span id="score">0</span>
+        </div>
+        
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        
+        <div id="controlsHint">УПРАВЛЕНИЕ: СВАЙПАЙ ПО ЭКРАНУ</div>
+
+        <div id="overlay">
+            <div id="message">ТЫ ВРЕЗАЛСЯ В СТЕНУ, ТЫ ПРОИГРАЛ, ЛОХ</div>
+            <div id="subMessage">Счет: <span id="finalScore">0</span></div>
+            <div style="font-size:16px; color: #00ffcc; margin-top:30px; text-shadow: 0 0 10px #00ffcc;">ТАПНИ, ЧТОБЫ ПЕРЕИГРАТЬ</div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreElement = document.getElementById('score');
+    const finalScoreElement = document.getElementById('finalScore');
+    const overlay = document.getElementById('overlay');
+
+    const gridSize = 20;
+    const tileCount = 20;
+
+    let score = 0;
+    let snake = [];
+    let food = { x: 0, y: 0 };
+    
+    let dx = 1;
+    let dy = 0;
+    
+    let gameSpeed = 150;
+    let gameInterval;
+    let isGameOver = false;
+
+    function initGame() {
+        snake = [
+            { x: 10, y: 10 },
+            { x: 9, y: 10 },
+            { x: 8, y: 10 }
+        ];
+        score = 0;
+        dx = 1;
+        dy = 0;
+        gameSpeed = 150;
+        isGameOver = false;
+        scoreElement.innerText = score;
+        placeFood();
+        startInterval();
+        hideOverlay();
+    }
+
+    function startInterval() {
+        clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, gameSpeed);
+    }
+
+    function gameLoop() {
+        if (isGameOver) return;
+        update();
+        draw();
+    }
+
+    function update() {
+        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+        // Проверка столкновения со стенами (границами поля)
+        if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+            gameOver();
+            return;
+        }
+
+        // Проверка хвоста
+        for (let i = 1; i < snake.length; i++) {
+            if (snake[i].x === head.x && snake[i].y === head.y) {
+                gameOver();
+                return;
+            }
+        }
+
+        snake.unshift(head);
+
+        if (head.x === food.x && head.y === food.y) {
+            score += 10;
+            scoreElement.innerText = score;
+            placeFood();
+            if (gameSpeed > 50) {
+                gameSpeed -= 5;
+                startInterval();
+            }
+        } else {
+            snake.pop();
+        }
+    }
+
+    // Отрисовка кирпичной текстуры стен и игровых элементов
+    function drawBrick(x, y, width, height) {
+        // Цвет самого кирпича (благородный терракотово-кирпичный оттенок)
+        ctx.fillStyle = '#b23b23';
+        ctx.fillRect(x, y, width, height);
+
+        // Объемный свет и тень для кирпича
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fillRect(x, y, width, 2);
+        ctx.fillRect(x, y, 2, height);
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.fillRect(x, y + height - 2, width, 2);
+        ctx.fillRect(x + width - 2, y, 2, height);
+    }
+
+    function draw() {
+        // Фон игрового поля — темно-серый бетон
+        ctx.fillStyle = '#1c1c1c';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Отрисовка красивых кирпичных стен по периметру (толщина в 1 клетку)
+        for (let i = 0; i < tileCount; i++) {
+            // Верхняя и нижняя граница
+            drawBrick(i * gridSize, 0, gridSize, gridSize);
+            drawBrick(i * gridSize, (tileCount - 1) * gridSize, gridSize, gridSize);
+            // Левая и правая граница
+            drawBrick(0, i * gridSize, gridSize, gridSize);
+            drawBrick((tileCount - 1) * gridSize, i * gridSize, gridSize, gridSize);
+        }
+
+        // Еда (неоновая капля)
+        ctx.fillStyle = '#ff0055';
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#ff0055';
+        ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
+        ctx.shadowBlur = 0;
+
+        // Змейка
+        snake.forEach((part, index) => {
+            if (index === 0) {
+                ctx.fillStyle = '#66ffcc';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00ffcc';
+            } else {
+                ctx.fillStyle = '#00ffcc';
+                ctx.shadowBlur = 0;
+            }
+            ctx.fillRect(part.x * gridSize + 2, part.y * gridSize + 2, gridSize - 4, gridSize - 4);
+        });
+    }
+
+    function placeFood() {
+        // Спавним еду так, чтобы она не падала на стены (отступ от 1 до 18)
+        food.x = Math.floor(Math.random() * (tileCount - 2)) + 1;
+        food.y = Math.floor(Math.random() * (tileCount - 2)) + 1;
+
+        snake.forEach(part => {
+            if (part.x === food.x && part.y === food.y) {
+                placeFood();
+            }
+        });
+    }
+
+    function gameOver() {
+        isGameOver = true;
+        clearInterval(gameInterval);
+        finalScoreElement.innerText = score;
+        showOverlay();
+    }
+    
+    function showOverlay() {
+        overlay.style.display = 'flex';
+    }
+    
+    function hideOverlay() {
+        overlay.style.display = 'none';
+    }
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const minSwipeDistance = 30; 
+
+    canvas.addEventListener('touchstart', handleTouchStart, false);
+    canvas.addEventListener('touchend', handleTouchEnd, false);
+    overlay.addEventListener('click', initGame, false);
+
+    function handleTouchStart(evt) {
+        if (!isGameOver) {
+            touchStartX = evt.touches[0].clientX;
+            touchStartY = evt.touches[0].clientY;
+        } else {
+             initGame();
+        }
+    }
+
+    function handleTouchEnd(evt) {
+        if (isGameOver) return;
+
+        const touchEndX = evt.changedTouches[0].clientX;
+        const touchEndY = evt.changedTouches[0].clientY;
+
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            if (Math.abs(diffX) > minSwipeDistance) {
+                if (diffX > 0 && dx !== -1) {
+                    dx = 1; dy = 0;
+                } else if (diffX < 0 && dx !== 1) {
+                    dx = -1; dy = 0;
+                }
+            }
+        } else {
+            if (Math.abs(diffY) > minSwipeDistance) {
+                if (diffY > 0 && dy !== -1) {
+                    dx = 0; dy = 1;
+                } else if (diffY < 0 && dy !== 1) {
+                    dx = 0; dy = -1;
+                }
+            }
+        }
+        
+        evt.preventDefault();
+    }
+
+    initGame();
+</script>
+</body>
+</html>
