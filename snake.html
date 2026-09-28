@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith Snake: Boss Rewind</title>
+    <style>
+        body {
+            background-color: #0d0d0d;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 2px;
+            font-size: 18px;
+            text-shadow: 0 0 10px #00ffcc;
+            text-align: center;
+        }
+        .scoreboard {
+            font-size: 14px;
+            margin-bottom: 3px;
+            text-shadow: 0 0 5px #ff0055;
+            color: #ff0055;
+            text-align: center;
+        }
+        .food-target {
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: #ffff00;
+            text-shadow: 0 0 8px #ffff00;
+            text-align: center;
+            height: 18px;
+        }
+        canvas {
+            border: 3px solid #00ffcc;
+            box-shadow: 0 0 20px #00ffcc;
+            background-color: #111;
+            max-width: 100%;
+            height: auto;
+        }
+        .controls {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 55px);
+            gap: 6px;
+        }
+        .btn {
+            background: #1a1a1a;
+            border: 2px solid #00ffcc;
+            color: #00ffcc;
+            font-size: 18px;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px;
+            box-shadow: 0 0 5px #00ffcc;
+            user-select: none;
+        }
+        .btn:active {
+            background: #00ffcc;
+            color: #000;
+        }
+        .btn-up { grid-column: 2; }
+        .btn-left { grid-column: 1; }
+        .btn-down { grid-column: 2; }
+        .btn-right { grid-column: 3; }
+
+        /* Меню и магазин */
+        .menu-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(13, 13, 13, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .menu-btn {
+            background: #1a1a1a;
+            border: 2px solid #ff0055;
+            color: #ff0055;
+            font-size: 16px;
+            padding: 12px 24px;
+            margin: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 0 10px #ff0055;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+        }
+        .menu-btn:active {
+            background: #ff0055;
+            color: #fff;
+        }
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 280px;
+            background: #1a1a1a;
+            border: 1px solid #00ffcc;
+            padding: 8px 12px;
+            margin: 5px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Главное меню -->
+    <div id="mainMenu" class="menu-screen">
+        <h1 style="font-size: 24px; margin-bottom: 20px; color: #00ffcc; text-shadow: 0 0 15px #00ffcc; text-align: center;">ZENITH SNAKE:<br>BOSS REWIND</h1>
+        <div style="font-size: 15px; margin-bottom: 15px; color: #ff0055;">Очки в копилке: <span id="totalPoints">0</span></div>
+        <button class="menu-btn" onclick="startGame()">▶ ИГРАТЬ</button>
+        <button class="menu-btn" style="border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 10px #00ffcc;" onclick="openShop()">🛍️ МАГАЗИН СКИНОВ</button>
+    </div>
+
+    <!-- Меню магазина -->
+    <div id="shopMenu" class="menu-screen hidden">
+        <h1 style="color: #ffff00; text-shadow: 0 0 15px #ffff00;">МАГАЗИН СКИНОВ</h1>
+        <div style="font-size: 14px; margin-bottom: 10px; color: #ff0055;">Баланс: <span id="shopPoints">0</span> очков</div>
+        
+        <div id="shopList"></div>
+
+        <button class="menu-btn" style="margin-top: 20px;" onclick="closeShop()">⬅ НАЗАД В МЕНЮ</button>
+    </div>
+
+    <!-- Игра -->
+    <h1>ZENITH SNAKE: BOSS REWIND</h1>
+    <div class="scoreboard">Очки: <span id="score">0</span> | Уровень: <span id="level">1</span>/100</div>
+    <div class="food-target" id="statusMsg">Цель: хаваем 🍎 Яблоки</div>
+    
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+    <div class="controls">
+        <div class="btn btn-up" onclick="changeDirection('UP')">⬆️</div>
+        <div class="btn btn-left" onclick="changeDirection('LEFT')">⬅️</div>
+        <div class="btn btn-down" onclick="changeDirection('DOWN')">⬇️</div>
+        <div class="btn btn-right" onclick="changeDirection('RIGHT')">➡️</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const box = 20;
+        let snake = [{ x: 9 * box, y: 10 * box }];
+        
+        const foodTypes = [
+            { name: "🍎 Яблоки", color: "#ff0055" },
+            { name: "🍋 Лимоны", color: "#ffff00" },
+            { name: "🍐 Груши", color: "#00ff00" },
+            { name: "🍌 Бананы", color: "#ffaa00" },
+            { name: "🍇 Виноград", color: "#aa00ff" }
+        ];
+
+        let food = {
+            x: Math.floor(Math.random() * 19) * box,
+            y: Math.floor(Math.random() * 19) * box
+        };
+
+        let walls = []; // Массив препятствий-стен на уровне
+        
+        let score = 0;
+        let level = 1;
+        let speed = 125;
+        let d = "RIGHT";
+        let game;
+
+        let totalScore = parseInt(localStorage.getItem("zenith_total_score")) || 0;
+        let currentSkin = JSON.parse(localStorage.getItem("zenith_current_skin")) || { head: "#00ffcc", body: "#009977" };
+        let unlockedSkins = JSON.parse(localStorage.getItem("zenith_unlocked")) || ["default"];
+
+        const skins = [
+            { id: "default", name: "Кибер-Зеленый", head: "#00ffcc", body: "#009977", price: 0 },
+            { id: "neon_blue", name: "Неоновый Синий", head: "#0088ff", body: "#0044aa", price: 15 },
+            { id: "cyber_gold", name: "Золотой Босс", head: "#ffaa00", body: "#aa6600", price: 30 },
+            { id: "acid_pink", name: "Кислотный Розовый", head: "#ff00aa", body: "#aa0066", price: 50 },
+            { id: "matrix_white", name: "Матричный Белый", head: "#ffffff", body: "#888888", price: 80 }
+        ];
+
+        function updateCurrencyUI() {
+            document.getElementById("totalPoints").innerText = totalScore;
+            document.getElementById("shopPoints").innerText = totalScore;
+        }
+
+        function openShop() {
+            updateCurrencyUI();
+            let listHTML = "";
+            skins.forEach(skin => {
+                let isUnlocked = unlockedSkins.includes(skin.id);
+                let isEquipped = currentSkin.head === skin.head;
+                let btnText = "";
+                
+                if (isEquipped) {
+                    btnText = "<span>НАДЕТО</span>";
+                } else if (isUnlocked) {
+                    btnText = `<button class="menu-btn" style="padding: 5px 10px; font-size: 12px; margin:0;" onclick="selectSkin('${skin.id}')">ВЫБРАТЬ</button>`;
+                } else {
+                    btnText = `<button class="menu-btn" style="padding: 5px 10px; font-size: 12px; margin:0; border-color:#ffff00; color:#ffff00;" onclick="buySkin('${skin.id}', ${skin.price})">КУПИТЬ (${skin.price})</button>`;
+                }
+
+                listHTML += `
+                    <div class="shop-item">
+                        <span style="color:${skin.head}; font-weight:bold;">${skin.name}</span>
+                        ${btnText}
+                    </div>
+                `;
+            });
+            document.getElementById("shopList").innerHTML = listHTML;
+            document.getElementById("mainMenu").classList.add("hidden");
+            document.getElementById("shopMenu").classList.remove("hidden");
+        }
+
+        function closeShop() {
+            document.getElementById("shopMenu").classList.add("hidden");
+            document.getElementById("mainMenu").classList.remove("hidden");
+        }
+
+        function buySkin(id, price) {
+            if (totalScore >= price) {
+                totalScore -= price;
+                localStorage.setItem("zenith_total_score", totalScore);
+                unlockedSkins.push(id);
+                localStorage.setItem("zenith_unlocked", JSON.stringify(unlockedSkins));
+                selectSkin(id);
+                openShop();
+            } else {
+                alert("Мало очков, фарми дальше, бро!");
+            }
+        }
+
+        function selectSkin(id) {
+            let skin = skins.find(s => s.id === id);
+            if (skin) {
+                currentSkin = { head: skin.head, body: skin.body };
+                localStorage.setItem("zenith_current_skin", JSON.stringify(currentSkin));
+                openShop();
+            }
+        }
+
+        function generateWalls() {
+            walls = [];
+            // Стены начинают появляться с 3 уровня, с каждым уровнем их становится больше
+            if (level < 3) return;
+            
+            let wallCount = Math.min(15, Math.floor(level / 3) + 2);
+            for (let i = 0; i < wallCount; i++) {
+                let wx = Math.floor(Math.random() * 19) * box;
+                let wy = Math.floor(Math.random() * 19) * box;
+                // Не ставим стены прямо на старте змейки и на еду
+                if ((wx === 9 * box && wy === 10 * box) || (wx === food.x && wy === food.y)) continue;
+                walls.push({ x: wx, y: wy });
+            }
+        }
+
+        function startGame() {
+            document.getElementById("mainMenu").classList.add("hidden");
+            resetGameVariables();
+            game = setInterval(draw, speed);
+        }
+
+        function resetGameVariables() {
+            snake = [{ x: 9 * box, y: 10 * box }];
+            score = 0;
+            level = 1;
+            speed = 125;
+            d = "RIGHT";
+            document.getElementById("score").innerText = score;
+            document.getElementById("level").innerText = level;
+            food = {
+                x: Math.floor(Math.random() * 19) * box,
+                y: Math.floor(Math.random() * 19) * box
+            };
+            generateWalls();
+        }
+
+        function isBossLevel() {
+            return level % 5 === 0;
+        }
+
+        document.addEventListener("keydown", direction);
+
+        function direction(event) {
+            if (event.keyCode == 37 && d != "RIGHT") d = "LEFT";
+            else if (event.keyCode == 38 && d != "DOWN") d = "UP";
+            else if (event.keyCode == 39 && d != "LEFT") d = "RIGHT";
+            else if (event.keyCode == 40 && d != "UP") d = "DOWN";
+        }
+
+        function changeDirection(newDir) {
+            if (newDir == "LEFT" && d != "RIGHT") d = "LEFT";
+            else if (newDir == "UP" && d != "DOWN") d = "UP";
+            else if (newDir == "RIGHT" && d != "LEFT") d = "RIGHT";
+            else if (newDir == "DOWN" && d != "UP") d = "DOWN";
+        }
+
+        function collision(head, array) {
+            for (let i = 0; i < array.length; i++) {
+                if (head.x == array[i].x && head.y == array[i].y) return true;
+            }
+            return false;
+        }
+
+        // Проверка столкновения со стенами
+        function checkWallCollision(head) {
+            for (let i = 0; i < walls.length; i++) {
+                if (head.x == walls[i].x && head.y == walls[i].y) return true;
+            }
+            return false;
+        }
+
+        function draw() {
+            ctx.fillStyle = "#111";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Рисуем стены-препятствия
+            ctx.fillStyle = "#ff5500";
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = "#ff5500";
+            for (let i = 0; i < walls.length; i++) {
+                ctx.fillRect(walls[i].x, walls[i].y, box, box);
+            }
+            ctx.shadowBlur = 0;
+
+            // Рисуем змейку
+            for (let i = 0; i < snake.length; i++) {
+                ctx.fillStyle = (i == 0) ? currentSkin.head : currentSkin.body;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = currentSkin.head;
+                ctx.fillRect(snake[i].x, snake[i].y, box, box);
+            }
+            ctx.shadowBlur = 0;
+
+            let statusElem = document.getElementById("statusMsg");
+            if (isBossLevel()) {
+                statusElem.innerHTML = "💀 <span style='color: #ff0000;'>ВНИМАНИЕ: УНИЧТОЖЬ БОССА!</span> 💀";
+            } else {
+                let foodIndex = Math.floor((level - 1) / 5) % foodTypes.length;
+                let currentFood = foodTypes[foodIndex];
+                statusElem.innerText = "Цель: хаваем " + currentFood.name + (walls.length > 0 ? " | 🧱 Стены активны" : "");
+            }
+
+            if (isBossLevel()) {
+                ctx.fillStyle = (Math.floor(Date.now() / 200) % 2 === 0) ? "#ff0000" : "#ffffff";
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = "#ff0000";
+            } else {
+                let foodIndex = Math.floor((level - 1) / 5) % foodTypes.length;
+                ctx.fillStyle = foodTypes[foodIndex].color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = foodTypes[foodIndex].color;
+            }
+            ctx.fillRect(food.x, food.y, box, box);
+            ctx.shadowBlur = 0;
+
+            let snakeX = snake[0].x;
+            let snakeY = snake[0].y;
+
+            if (d == "LEFT") snakeX -= box;
+            if (d == "UP") snakeY -= box;
+            if (d == "RIGHT") snakeX += box;
+            if (d == "DOWN") snakeY += box;
+
+            let newHead = { x: snakeX, y: snakeY };
+
+            // Проверка врезания в стены, границы или в себя
+            if (snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height || collision(newHead, snake) || checkWallCollision(newHead)) {
+                clearInterval(game);
+                totalScore += score;
+                localStorage.setItem("zenith_total_score", totalScore);
+                
+                alert("Пиздец, вписался в стену или хвост! Заработано очков: " + score);
+                document.getElementById("mainMenu").classList.remove("hidden");
+                return;
+            }
+
+            if (snakeX == food.x && snakeY == food.y) {
+                let pointsGained = isBossLevel() ? 5 : 1;
+                score += pointsGained;
+                document.getElementById("score").innerText = score;
+
+                if (level < 100) {
+                    level++;
+                    document.getElementById("level").innerText = level;
+                    clearInterval(game);
+                    speed = Math.max(30, speed - 1);
+                    generateWalls(); // Создаем новые стены под новый уровень
+                    game = setInterval(draw, speed);
+                } else {
+                    clearInterval(game);
+                    alert("ЛЕГЕНДА! ВСЕ 100 УРОВНЕЙ И ЛАБИРИНТЫ ПРОЙДЕНЫ!");
+                    totalScore += score;
+                    localStorage.setItem("zenith_total_score", totalScore);
+                    document.getElementById("mainMenu").classList.remove("hidden");
+                    return;
+                }
+
+                // Спавн еды так, чтобы она не оказалась внутри стены
+                do {
+                    food = {
+                        x: Math.floor(Math.random() * 19) * box,
+                        y: Math.floor(Math.random() * 19) * box
+                    };
+                } while (checkWallCollision(food) || collision(food, snake));
+
+            } else {
+                snake.pop();
+            }
+
+            snake.unshift(newHead);
+        }
+
+        updateCurrencyUI();
+    </script>
+</body>
+  </html>
