@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Rewind Revolution</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #05050a;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 5px 0;
+            font-size: 1.4rem;
+            text-shadow: 0 0 10px #00ffcc, 0 0 20px #ff0055;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+        #game-container {
+            position: relative;
+            border: 3px solid #00ffcc;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.4);
+            background: #0a0a12;
+            width: 400px;
+            height: 400px;
+            max-width: 100vw;
+            max-height: 100vw;
+        }
+        canvas {
+            display: block;
+            background: #080810;
+            width: 100%;
+            height: 100%;
+        }
+        .ui-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 400px;
+            max-width: 100vw;
+            margin-bottom: 6px;
+            padding: 0 5px;
+            font-size: 0.8rem;
+            text-shadow: 0 0 5px #00ffcc;
+        }
+        .menu-btn {
+            background: #111122;
+            border: 2px solid #00ffcc;
+            color: #00ffcc;
+            padding: 6px 12px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
+            transition: all 0.2s ease;
+            margin: 4px;
+        }
+        .menu-btn:hover {
+            background: #00ffcc;
+            color: #05050a;
+            box-shadow: 0 0 15px #00ffcc;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 10, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            padding: 10px;
+        }
+        .hidden {
+            display: none !important;
+        }
+        input {
+            background: #111122;
+            border: 2px solid #ff0055;
+            color: #fff;
+            padding: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            margin: 8px 0;
+            text-align: center;
+            outline: none;
+            box-shadow: 0 0 8px rgba(255, 0, 85, 0.3);
+            width: 80%;
+        }
+        .shop-grid, .players-list {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 5px;
+            width: 100%;
+        }
+        .players-list {
+            grid-template-columns: 1fr;
+            max-height: 180px;
+        }
+        .skin-card, .player-card {
+            border: 1px solid #00ffcc;
+            padding: 5px;
+            text-align: center;
+            cursor: pointer;
+            background: #101020;
+            font-size: 0.7rem;
+            border-radius: 4px;
+        }
+        .skin-card.selected {
+            border-color: #ff0055;
+            box-shadow: 0 0 8px #ff0055;
+        }
+        .player-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            padding: 8px;
+        }
+        .controls-hint {
+            margin-top: 8px;
+            font-size: 0.7rem;
+            color: #888;
+            text-align: center;
+        }
+        #drop-popup {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: bold;
+            font-size: 1rem;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            z-index: 5;
+            text-shadow: 0 0 8px #000;
+        }
+        .msg-toast {
+            font-size: 0.75rem;
+            color: #ff0055;
+            height: 15px;
+            margin-top: 2px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>SNAKE REWIND REVOLUTION</h1>
+    <div class="ui-panel">
+        <div>Ур: <span id="lvl-val">1</span>/200</div>
+        <div>
+            <button class="menu-btn" style="padding: 2px 6px; font-size: 0.7rem; margin: 0;" onclick="toggleMusic()" id="music-toggle-btn">🎵 МУЗЫКА: ВКЛ</button>
+            Чешуйки: <span id="money-val">0</span> 🪙
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="drop-popup" class="hidden"></div>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+        <div id="login-menu" class="overlay">
+            <h2 style="color: #ff0055; text-shadow: 0 0 10px #ff0055; font-size: 1.2rem; margin: 5px 0;">ВХОД В СИСТЕМУ</h2>
+            <p style="font-size: 0.75rem; color: #aaa; text-align: center; max-width: 280px; margin: 5px 0;">Введите свой кибер-никнейм:</p>
+            <input type="text" id="nickname-input" placeholder="Ваш ник..." maxlength="15" value="Август">
+            <button class="menu-btn" onclick="saveNickname()">ВОЙТИ В АРЕНУ</button>
+        </div>
+
+        <div id="main-menu" class="overlay hidden">
+            <h2 style="color: #ff0055; text-shadow: 0 0 10px #ff0055; font-size: 1.2rem; margin: 5px 0;">ГЛАВНОЕ МЕНЮ</h2>
+            <button id="continue-btn" class="menu-btn hidden" onclick="continueGame()" style="border-color: #00ffcc; color: #00ffcc;">ПРОДОЛЖИТЬ ИГРУ</button>
+            <button class="menu-btn" onclick="startFreshGame()">НОВАЯ ИГРА</button>
+            <button class="menu-btn" onclick="openShop()">МАГАЗИН СКИНОВ</button>
+            <button class="menu-btn" onclick="openCheats()">ТЕРМИНАЛ</button>
+            <button class="menu-btn" onclick="logout()" style="border-color: #ff0055; color: #ff0055; margin-top: 5px;">СМЕНИТЬ АККАУНТ</button>
+        </div>
+
+        <div id="shop-menu" class="overlay hidden">
+            <h2 style="color: #ff0055; font-size: 1.1rem; margin: 2px 0;">МАГАЗИН (Чешуйки: <span id="shop-money">0</span>)</h2>
+            <div class="shop-grid" id="shop-grid"></div>
+            <div id="shop-msg" class="msg-toast"></div>
+            <button class="menu-btn" onclick="closeShop()">НАЗАД</button>
+        </div>
+
+        <div id="cheats-menu" class="overlay hidden">
+            <h2 style="color: #ff0055; font-size: 1.1rem; margin: 5px 0;">ТЕРМИНАЛ</h2>
+            <input type="text" id="cheat-input" placeholder="Команда...">
+            <div id="cheat-msg" class="msg-toast"></div>
+            <button class="menu-btn" onclick="executeCheat()">ВЫПОЛНИТЬ</button>
+            <button class="menu-btn" onclick="closeCheats()">НАЗАД</button>
+        </div>
+
+        <div id="console-menu" class="overlay hidden">
+            <h2 style="color: #ff0055; font-size: 1.1rem; margin: 5px 0;">БАЗА ИГРОКОВ (КОНСОЛЬ)</h2>
+            <div class="players-list" id="players-list"></div>
+            <button class="menu-btn" onclick="closeConsoleMenu()">НАЗАД</button>
+        </div>
+
+        <div id="game-over-menu" class="overlay hidden">
+            <h2 id="game-over-title" style="color: #ff0055; font-size: 1.2rem; margin: 5px 0;">ИГРА ОКОНЧЕНА</h2>
+            <p id="game-over-text" style="font-size: 0.8rem; text-align: center; padding: 0 10px; margin: 5px 0;">Вы погибли</p>
+            <div id="revive-container" style="margin-bottom: 5px;">
+                <button class="menu-btn" id="revive-btn" onclick="buyRevive()" style="border-color: #ff0055; color: #ff0055; font-size: 0.8rem; padding: 5px 10px;">КУПИТЬ ВОЗРОЖДЕНИЕ (500 🪙)</button>
+            </div>
+            <button class="menu-btn" onclick="startFreshGame()">ЗАНОВО С 1 УРОВНЯ</button>
+            <button class="menu-btn" onclick="returnToMenu()">В МЕНЮ</button>
+        </div>
+    </div>
+
+    <div class="controls-hint">Управление: Стрелки / WASD или свайпы по экрану</div>
+
+    <script>
+        // --- ФОРТЕПИАННЫЙ СИНТЕЗАТОР (ПОД GOLDEN BROWN & HIDE) ---
+        let audioCtx = null;
+        let musicEnabled = true;
+        let currentTrack = 'none';
+        let musicTimer = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleMusic() {
+            musicEnabled = !musicEnabled;
+            const btn = document.getElementById('music-toggle-btn');
+            if (musicEnabled) {
+                btn.innerText = "🎵 МУЗЫКА: ВКЛ";
+                playMusic(isPaused ? 'menu' : 'game');
+            } else {
+                btn.innerText = "🔇 МУЗЫКА: ВЫКЛ";
+                stopMusic();
+            }
+        }
+
+        // Псевдо-фортепианный щипок/молоточек с мягким затуханием
+        function playPianoNote(freq, duration, gainVal = 0.05) {
+            if (!musicEnabled || !audioCtx) return;
+            try {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                
+                // Комбинация треугольной и синусоидальной формы дает чистый клавишный тон
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+                // Быстрая атака молоточка и долгое акустическое затухание
+                gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(gainVal, audioCtx.currentTime + 0.04);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function playMusic(track) {
+            initAudio();
+            if (!musicEnabled) return;
+            if (currentTrack === track && musicTimer) return;
+            
+            stopMusic();
+            currentTrack = track;
+
+            if (track === 'menu') {
+                // Пышная вальсовая прогрессия в стиле Golden Brown (клавишный минор)
+                let chordProgression = [
+                    [174.61, 220, 261.63, 329.63], // Fm / Fmaj вайб
+                    [146.83, 185.00, 220, 293.66],  // Dm вайб
+                    [130.81, 164.81, 196, 246.94],  // Am
+                    [110, 138.59, 164.81, 220]      // A minor
+                ];
+                let chordIndex = 0;
+                let noteIndex = 0;
+
+                musicTimer = setInterval(() => {
+                    if (!musicEnabled || currentTrack !== 'menu') return;
+                    let currentChord = chordProgression[chordIndex];
+                    let freq = currentChord[noteIndex % currentChord.length];
+                    
+                    playPianoNote(freq, 2.0, 0.045);
+                    
+                    noteIndex++;
+                    if (noteIndex % currentChord.length === 0) {
+                        chordIndex = (chordIndex + 1) % chordProgression.length;
+                    }
+                }, 850);
+
+            } else if (track === 'game') {
+                // Атмосферный гипнотический арпеджиатор в стиле HIDE
+                let hideNotes = [220, 261.63, 329.63, 392, 440, 392, 329.63, 261.63];
+                let step = 0;
+
+                musicTimer = setInterval(() => {
+                    if (!musicEnabled || currentTrack !== 'game') return;
+                    let freq = hideNotes[step % hideNotes.length];
+                    
+                    playPianoNote(freq, 1.2, 0.04);
+                    // Добавляем глубокий басовый акцент клавиш
+                    if (step % 4 === 0) {
+                        playPianoNote(freq * 0.5, 1.6, 0.035);
+                    }
+                    
+                    step++;
+                }, 700);
+            }
+        }
+
+        function stopMusic() {
+            if (musicTimer) {
+                clearInterval(musicTimer);
+                musicTimer = null;
+            }
+            currentTrack = 'none';
+        }
+
+
+        // --- ИГРОВАЯ ЛОГИКА ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const GRID_SIZE = 20;
+        const TILE_COUNT = canvas.width / GRID_SIZE;
+
+        let playerName = "Август";
+        let snake = [];
+        let dx = 1;
+        let dy = 0;
+        let food = { x: 0, y: 0, type: 'apple' };
+        let bugs = [];
+        let score = 0;
+        let level = 1;
+        let money = 0;
+        let currentSkin = 0;
+        let unlockedSkins = {0: true};
+        let godMode = false;
+        let gameInterval = null;
+        let isPaused = true;
+        let lastDeathState = null;
+
+        const skins = [
+            { name: "Неоновый Пульс", price: 0, color: '#00ffcc' },
+            { name: "Алый Квант", price: 2200, color: '#ff0055' },
+            { name: "Электронный Питон", price: 4400, color: '#0099ff' },
+            { name: "Био-Токсик", price: 6600, color: '#33ff00' },
+            { name: "Плазменный Разряд", price: 8800, color: '#ff3300' },
+            { name: "Кибер-Самурай", price: 11000, color: '#9900ff' },
+            { name: "Призрак Сети", price: 13200, color: '#ff00cc' },
+            { name: "Медный Терминал", price: 15400, color: '#ff9900' },
+            { name: "Глюк Матрицы", price: 17600, color: '#00ffff' },
+            { name: "Оксид Железа", price: 19800, color: '#cc6600' },
+            { name: "Теневой Ниндзя", price: 22000, color: '#333333' },
+            { name: "Лазерный Луч", price: 24200, color: '#ff0033' },
+            { name: "Кислотный Дождь", price: 26400, color: '#66ff00' },
+            { name: "Цифровой Фантом", price: 28600, color: '#9933ff' },
+            { name: "Стальной Удав", price: 30800, color: '#7f8c8d' },
+            { name: "Перегрузка Овердрайв", price: 33000, color: '#e74c3c' },
+            { name: "Голографический Спектр", price: 35200, color: '#1abc9c' },
+            { name: "Крио-Лёд", price: 37400, color: '#3498db' },
+            { name: "Квантовый Узел", price: 39600, color: '#9b59b6' },
+            { name: "Цифровая Мгла", price: 41800, color: '#34495e' },
+            { name: "Синдикат Тьмы", price: 44000, color: '#2c3e50' },
+            { name: "Импульс Звезды", price: 46200, color: '#e67e22' },
+            { name: "Пламя Демона", price: 48400, color: '#d35400' },
+            { name: "Сердце Ядра", price: 50600, color: '#c0392b' },
+            { name: "Радужный Спектр", price: 53000, color: 'rainbow' },
+            { name: "Штормовой Фронт", price: 55000, color: '#2980b9' },
+            { name: "Солнечная Вспышка", price: 58000, color: '#f39c12' },
+            { name: "Аметистовый Кристалл", price: 61000, color: '#8e44ad' },
+            { name: "Изумрудный Сектор", price: 64000, color: '#27ae60' },
+            { name: "Рубиновый Процессор", price: 67000, color: '#c0392b' },
+            { name: "Серебряный Фантом", price: 70000, color: '#bdc3c7' },
+            { name: "Неоновый Город", price: 73000, color: '#16a085' },
+            { name: "Ледяной Шлейф", price: 76000, color: '#d4efdf' },
+            { name: "Лавовый Поток", price: 79000, color: '#f1c40f' },
+            { name: "Глубокий Космос", price: 82000, color: '#4a235a' },
+            { name: "Бинарный Код", price: 85000, color: '#1b4f72' },
+            { name: "Кибер-Кот", price: 88000, color: '#f5b041' },
+            { name: "Электрошок", price: 91000, color: '#58d68d' },
+            { name: "Энергетический Шар", price: 94000, color: '#ec7063' },
+            { name: "Крипто-Узел", price: 97000, color: '#af7ac5' },
+            { name: "Цифровая Пыль", price: 100000, color: '#fdfefe' },
+            { name: "Огненный Тигр", price: 105000, color: '#f39c12' },
+            { name: "Эфирный Поток", price: 110000, color: '#76d7c4' },
+            { name: "Критический Взрыв", price: 115000, color: '#f8c471' },
+            { name: "Системный Ноль", price: 120000, color: '#85c1e9' },
+            { name: "Сверхновая Звезда", price: 125000, color: '#bb8fce' },
+            { name: "Прототип Бога", price: 130000, color: '#f1948a' },
+            { name: "Глобальная Сеть", price: 135000, color: '#82e0aa' },
+            { name: "Золотой Протокол", price: 150000, color: 'gold' },
+            { name: "Радужный", price: 175000, color: 'rainbow' },
+            { name: "Цифровой Дракон", price: 200000, color: '#f8ffe5' }
+        ];
+
+        window.onload = function() {
+            document.getElementById('login-menu').classList.remove('hidden');
+            playMusic('menu');
+        };
+
+        function registerPlayerList(name) {
+            let list = JSON.parse(localStorage.getItem('snake_all_players') || '[]');
+            if (!list.includes(name)) {
+                list.push(name);
+                localStorage.setItem('snake_all_players', JSON.stringify(list));
+            }
+        }
+
+        function saveNickname() {
+            const inputVal = document.getElementById('nickname-input').value.trim();
+            if (inputVal) {
+                playerName = inputVal;
+            }
+            registerPlayerList(playerName);
+            loadProfile(playerName);
+        }
+
+        function loadProfile(name) {
+            playerName = name;
+            localStorage.setItem('snake_rewind_player', playerName);
+            registerPlayerList(playerName);
+
+            const savedData = localStorage.getItem(`snake_profile_${playerName}`);
+            if (savedData) {
+                const profile = JSON.parse(savedData);
+                money = profile.money || 0;
+                currentSkin = profile.currentSkin || 0;
+                unlockedSkins = profile.unlockedSkins || {0: true};
+                level = profile.level || 1;
+            } else {
+                money = 0;
+                currentSkin = 0;
+                unlockedSkins = {0: true};
+                level = 1;
+                saveProfileData();
+            }
+
+            const savedGame = localStorage.getItem(`snake_save_${playerName}`);
+            const continueBtn = document.getElementById('continue-btn');
+            if (savedGame) {
+                continueBtn.classList.remove('hidden');
+            } else {
+                continueBtn.classList.add('hidden');
+            }
+
+            document.getElementById('login-menu').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+            playMusic('menu');
+            updateUI();
+        }
+
+        function saveProfileData() {
+            const profile = {
+                money: money,
+                currentSkin: currentSkin,
+                unlockedSkins: unlockedSkins,
+                level: level
+            };
+            localStorage.setItem(`snake_profile_${playerName}`, JSON.stringify(profile));
+        }
+
+        function saveGameProgress() {
+            const gameState = {
+                snake: snake,
+                dx: dx,
+                dy: dy,
+                food: food,
+                bugs: bugs,
+                score: score,
+                level: level
+            };
+            localStorage.setItem(`snake_save_${playerName}`, JSON.stringify(gameState));
+        }
+
+        function logout() {
+            if (gameInterval) clearInterval(gameInterval);
+            isPaused = true;
+            document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+            document.getElementById('nickname-input').value = playerName;
+            document.getElementById('login-menu').classList.remove('hidden');
+            playMusic('menu');
+        }
+
+        function startFreshGame() {
+            level = 1;
+            score = 0;
+            saveProfileData();
+            initGame();
+            startGameLoop();
+        }
+
+        function continueGame() {
+            const savedGame = localStorage.getItem(`snake_save_${playerName}`);
+            if (savedGame) {
+                const state = JSON.parse(savedGame);
+                snake = state.snake;
+                dx = state.dx;
+                dy = state.dy;
+                food = state.food;
+                bugs = state.bugs || [];
+                score = state.score;
+                level = state.level;
+                updateUI();
+                startGameLoop();
+            } else {
+                startFreshGame();
+            }
+        }
+
+        function initGame() {
+            snake = [
+                { x: 10, y: 10 },
+                { x: 9, y: 10 },
+                { x: 8, y: 10 }
+            ];
+            dx = 1;
+            dy = 0;
+            bugs = [];
+            setupLevelBugs();
+            spawnFood();
+            updateUI();
+        }
+
+        function startGameLoop() {
+            document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+            isPaused = false;
+            playMusic('game');
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, 120);
+        }
+
+        function returnToMenu() {
+            if (gameInterval) clearInterval(gameInterval);
+            isPaused = true;
+            saveGameProgress();
+            document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+            document.getElementById('continue-btn').classList.remove('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+            playMusic('menu');
+            saveProfileData();
+        }
+
+        function gameLoop() {
+            update();
+            if (isPaused) return;
+            draw();
+        }
+
+        function getRandomDrop() {
+            const roll = Math.random() * 100;
+            if (roll < 0.5)  return { amount: 100000, text: "+100 000 Мирозданные", color: "#ff00ff" };
+            if (roll < 1.5)  return { amount: 5000,   text: "+5 000 Легендарный", color: "#ff8800" };
+            if (roll < 4.0)  return { amount: 2000,   text: "+2 000 Легендарный", color: "#ff8800" };
+            if (roll < 10.0) return { amount: 1000,   text: "+1 000 Легендарный", color: "#ff8800" };
+            if (roll < 23.0) return { amount: 500,    text: "+500 Редкий", color: "#0088ff" };
+            if (roll < 51.0) return { amount: 150,    text: "+150 Обычный", color: "#00ffcc" };
+            return { amount: 20, text: "+20 Мало", color: "#555555" };
+        }
+
+        let popupTimeout = null;
+        function showDropPopup(dropInfo) {
+            const popup = document.getElementById('drop-popup');
+            popup.innerText = dropInfo.text;
+            popup.style.color = dropInfo.color;
+            popup.classList.remove('hidden');
+            popup.style.opacity = '1';
+
+            if (popupTimeout) clearTimeout(popupTimeout);
+            popupTimeout = setTimeout(() => {
+                popup.style.opacity = '0';
+            }, 1200);
+        }
+
+        function update() {
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+            if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT) {
+                if (godMode) {
+                    if (head.x < 0) head.x = TILE_COUNT - 1;
+                    else if (head.x >= TILE_COUNT) head.x = 0;
+                    if (head.y < 0) head.y = TILE_COUNT - 1;
+                    else if (head.y >= TILE_COUNT) head.y = 0;
+                } else {
+                    gameOver("Стена не прощает ошибок, блядь!");
+                    return;
+                }
+            }
+
+            for (let i = 0; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    if (!godMode) {
+                        gameOver("Ты сожрал собственный хвост нахуй!");
+                        return;
+                    }
+                }
+            }
+
+            if (level >= 50 && !godMode) {
+                for (let bug of bugs) {
+                    if (head.x === bug.x && head.y === bug.y) {
+                        gameOver("Тебя порвал кибер-жук!");
+                        return;
+                    }
+                }
+            }
+
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                const drop = getRandomDrop();
+                money += drop.amount;
+                showDropPopup(drop);
+                
+                score++;
+                if (score >= 5) {
+                    score = 0;
+                    if (level < 200) {
+                        level++;
+                        setupLevelBugs();
+                    } else {
+                        gameOver("АХУЕТЬ! ПОБЕДА! ПРОЙДЕНЫ ВСЕ 200 УРОВНЕЙ!");
+                        return;
+                    }
+                }
+                saveProfileData();
+                saveGameProgress();
+                spawnFood();
+            } else {
+                snake.pop();
+            }
+
+            if (level >= 50 && Math.random() < 0.6) {
+                for (let bug of bugs) {
+                    if (bug.x < snake[0].x) bug.x++;
+                    else if (bug.x > snake[0].x) bug.x--;
+                    if (bug.y < snake[0].y) bug.y++;
+                    else if (bug.y > snake[0].y) bug.y--;
+                }
+            }
+
+            updateUI();
+        }
+
+        function setupLevelBugs() {
+            bugs = [];
+            if (level >= 50) {
+                let bugCount = Math.floor((level - 50) / 10) + 1;
+                for (let i = 0; i < bugCount; i++) {
+                    bugs.push({ x: Math.floor(Math.random() * TILE_COUNT), y: Math.floor(Math.random() * TILE_COUNT) });
+                }
+            }
+        }
+
+        function spawnFood() {
+            food.x = Math.floor(Math.random() * TILE_COUNT);
+            food.y = Math.floor(Math.random() * TILE_COUNT);
+            
+            if (level % 5 === 0) food.type = 'chocolate';
+            else if (level <= 25) food.type = 'apple';
+            else if (level <= 50) food.type = 'banana';
+            else if (level <= 75) food.type = 'orange';
+            else if (level <= 100) food.type = 'lemon';
+            else if (level <= 125) food.type = 'berry';
+            else if (level <= 150) food.type = 'mushroom';
+            else if (level <= 175) food.type = 'watermelon';
+            else food.type = 'cherry';
+        }
+
+        function draw() {
+            drawBackground();
+
+            ctx.font = '16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let foodEmoji = '🍎';
+            if (food.type === 'chocolate') foodEmoji = '🍫';
+            else if (food.type === 'banana') foodEmoji = '🍌';
+            else if (food.type === 'orange') foodEmoji = '🍊';
+            else if (food.type === 'lemon') foodEmoji = '🍋';
+            else if (food.type === 'berry') foodEmoji = '🫐';
+            else if (food.type === 'mushroom') foodEmoji = '🍄';
+            else if (food.type === 'watermelon') foodEmoji = '🍉';
+            else if (food.type === 'cherry') foodEmoji = '🍒';
+
+            ctx.fillText(foodEmoji, food.x * GRID_SIZE + GRID_SIZE/2, food.y * GRID_SIZE + GRID_SIZE/2);
+
+            if (level >= 50) {
+                for (let bug of bugs) {
+                    ctx.fillText('👾', bug.x * GRID_SIZE + GRID_SIZE/2, bug.y * GRID_SIZE + GRID_SIZE/2);
+                }
+            }
+
+            for (let i = 0; i < snake.length; i++) {
+                if (skins[currentSkin].color === 'rainbow') {
+                    ctx.fillStyle = `hsl(${(i * 15 + Date.now() / 20) % 360}, 100%, 50%)`;
+                } else if (skins[currentSkin].color === 'gold') {
+                    ctx.fillStyle = `hsl(45, 100%, ${50 + Math.sin(Date.now() / 150) * 20}%)`;
+                } else {
+                    ctx.fillStyle = skins[currentSkin].color;
+                }
+                ctx.fillRect(snake[i].x * GRID_SIZE + 1, snake[i].y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+            }
+
+            if (godMode) {
+                ctx.fillStyle = "#ff0055";
+                ctx.font = "10px 'Courier New'";
+                ctx.fillText("GOD MODE", 30, 15);
+            }
+        }
+
+        // Динамические цвета карты и фона в зависимости от уровня (чтобы на 41-м и дальше всё менялось)
+        function drawBackground() {
+            // Меняем оттенок фона и сетки в зависимости от пачки уровней
+            let themeIndex = Math.floor((level - 1) / 25); // каждые 25 уровней — новая тема
+            let bgColors = ['#080810', '#0a0514', '#051214', '#140808', '#081408', '#141408', '#120514', '#050514'];
+            let gridColors = [
+                'rgba(0, 255, 204, 0.15)',
+                'rgba(255, 0, 150, 0.15)',
+                'rgba(0, 200, 255, 0.18)',
+                'rgba(255, 100, 0, 0.15)',
+                'rgba(50, 255, 50, 0.15)',
+                'rgba(255, 220, 0, 0.15)',
+                'rgba(200, 0, 255, 0.15)',
+                'rgba(0, 255, 255, 0.18)'
+            ];
+
+            let curBg = bgColors[themeIndex % bgColors.length];
+            let curGrid = gridColors[themeIndex % gridColors.length];
+
+            ctx.fillStyle = curBg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = curGrid;
+            ctx.lineWidth = 1;
+
+            for (let i = 0; i < TILE_COUNT; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * GRID_SIZE, 0);
+                ctx.lineTo(i * GRID_SIZE, canvas.height);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, i * GRID_SIZE);
+                ctx.lineTo(canvas.width, i * GRID_SIZE);
+                ctx.stroke();
+            }
+        }
+
+        function gameOver(reason) {
+            clearInterval(gameInterval);
+            isPaused = true;
+            playMusic('menu');
+            
+            localStorage.removeItem(`snake_save_${playerName}`);
+            document.getElementById('continue-btn').classList.add('hidden');
+
+            lastDeathState = {
+                level: level,
+                score: score,
+                food: { ...food },
+                bugs: JSON.parse(JSON.stringify(bugs))
+            };
+
+            saveProfileData();
+
+            document.getElementById('game-over-title').innerText = "ИГРА ОКОНЧЕНА";
+            document.getElementById('game-over-text').innerText = `${playerName}, ${reason} (Уровень: ${level})`;
+            
+            const reviveBtn = document.getElementById('revive-container');
+            if (money >= 500) {
+                reviveBtn.style.display = 'block';
+            } else {
+                reviveBtn.style.display = 'none';
+            }
+
+            document.getElementById('game-over-menu').classList.remove('hidden');
+        }
+
+        function buyRevive() {
+            if (money >= 500 && lastDeathState) {
+                money -= 500;
+                saveProfileData();
+                
+                snake = [
+                    { x: 10, y: 10 },
+                    { x: 9, y: 10 },
+                    { x: 8, y: 10 }
+                ];
+                dx = 1;
+                dy = 0;
+                level = lastDeathState.level;
+                score = lastDeathState.score;
+                food = lastDeathState.food;
+                bugs = lastDeathState.bugs;
+
+                document.getElementById('game-over-menu').classList.add('hidden');
+                isPaused = false;
+                playMusic('game');
+                updateUI();
+                saveGameProgress();
+                if (gameInterval) clearInterval(gameInterval);
+                gameInterval = setInterval(gameLoop, 120);
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('lvl-val').innerText = level;
+            document.getElementById('money-val').innerText = money;
+        }
+
+        window.addEventListener('keydown', e => {
+            if (isPaused) return;
+            if ((e.key === 'ArrowUp' || e.key === 'w') && dy === 0) { dx = 0; dy = -1; }
+            if ((e.key === 'ArrowDown' || e.key === 's') && dy === 0) { dx = 0; dy = 1; }
+            if ((e.key === 'ArrowLeft' || e.key === 'a') && dx === 0) { dx = -1; dy = 0; }
+            if ((e.key === 'ArrowRight' || e.key === 'd') && dx === 0) { dx = 1; dy = 0; }
+        });
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+        window.addEventListener('touchstart', e => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        });
+        window.addEventListener('touchend', e => {
+            if (isPaused) return;
+            let diffX = e.changedTouches[0].clientX - touchStartX;
+            let diffY = e.changedTouches[0].clientY - touchStartY;
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX > 0 && dx === 0) { dx = 1; dy = 0; }
+                else if (diffX < 0 && dx === 0) { dx = -1; dy = 0; }
+            } else {
+                if (diffY > 0 && dy === 0) { dx = 0; dy = 1; }
+                else if (diffY < 0 && dy === 0) { dx = 0; dy = -1; }
+            }
+        });
+
+        function openShop() {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('shop-menu').classList.remove('hidden');
+            document.getElementById('shop-money').innerText = money;
+            document.getElementById('shop-msg').innerText = '';
+            renderShop();
+        }
+
+        function closeShop() {
+            document.getElementById('shop-menu').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+        }
+
+        function renderShop() {
+            const grid = document.getElementById('shop-grid');
+            grid.innerHTML = '';
+            skins.forEach((skin, idx) => {
+                const card = document.createElement('div');
+                card.className = `skin-card ${currentSkin === idx ? 'selected' : ''}`;
+                card.innerHTML = `<strong>${skin.name}</strong><br>${unlockedSkins[idx] ? 'Куплено' : skin.price + ' 🪙'}`;
+                card.onclick = () => selectOrBuySkin(idx);
+                grid.appendChild(card);
+            });
+        }
+
+        function selectOrBuySkin(idx) {
+            const msgEl = document.getElementById('shop-msg');
+            if (unlockedSkins[idx]) {
+                currentSkin = idx;
+                msgEl.innerText = `Выбран скин: ${skins[idx].name}`;
+            } else if (money >= skins[idx].price) {
+                money -= skins[idx].price;
+                unlockedSkins[idx] = true;
+                currentSkin = idx;
+                document.getElementById('shop-money').innerText = money;
+                msgEl.innerText = `Куплен скин: ${skins[idx].name}!`;
+                saveProfileData();
+            } else {
+                msgEl.innerText = "Не хватает чешуек!";
+            }
+            renderShop();
+        }
+
+        function openCheats() {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('cheats-menu').classList.remove('hidden');
+            document.getElementById('cheat-msg').innerText = '';
+        }
+
+        function closeCheats() {
+            document.getElementById('cheats-menu').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+        }
+
+        function openConsoleMenu() {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('console-menu').classList.remove('hidden');
+            renderPlayersList();
+        }
+
+        function closeConsoleMenu() {
+            document.getElementById('console-menu').classList.add('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+        }
+
+        function renderPlayersList() {
+            const listEl = document.getElementById('players-list');
+            listEl.innerHTML = '';
+            let list = JSON.parse(localStorage.getItem('snake_all_players') || '[]');
+            if (list.length === 0) list = [playerName];
+
+            list.forEach(name => {
+                const pData = JSON.parse(localStorage.getItem(`snake_profile_${name}`) || '{"money":0,"level":1}');
+                const card = document.createElement('div');
+                card.className = 'player-card';
+                card.innerHTML = `
+                    <span><strong>${name}</strong> (Ур: ${pData.level}, 🪙: ${pData.money})</span>
+                    <div>
+                        <button class="menu-btn" style="padding: 2px 6px; font-size:0.65rem;" onclick="consoleAction('${name}', 'give')">+1000</button>
+                        <button class="menu-btn" style="padding: 2px 6px; font-size:0.65rem; border-color:#ff0055; color:#ff0055;" onclick="consoleAction('${name}', 'delete')">-500</button>
+                    </div>
+                `;
+                listEl.appendChild(card);
+            });
+        }
+
+        function consoleAction(targetName, actionType) {
+            let pData = JSON.parse(localStorage.getItem(`snake_profile_${targetName}`) || '{"money":0,"level":1,"currentSkin":0,"unlockedSkins":{0:true}}');
+            if (actionType === 'give') {
+                pData.money += 1000;
+            } else if (actionType === 'delete') {
+                pData.money = Math.max(0, pData.money - 500);
+            }
+            localStorage.setItem(`snake_profile_${targetName}`, JSON.stringify(pData));
+            if (targetName === playerName) {
+                money = pData.money;
+                updateUI();
+            }
+            renderPlayersList();
+        }
+
+        function executeCheat() {
+            const val = document.getElementById('cheat-input').value.trim();
+            const parts = val.split(' ');
+            const cmd = parts[0];
+            const sub = parts[1];
+            const msgEl = document.getElementById('cheat-msg');
+
+            // Открытие консоли через команду /console из терминала
+            if (cmd === '/console') {
+                document.getElementById('cheats-menu').classList.add('hidden');
+                document.getElementById('cheat-input').value = '';
+                openConsoleMenu();
+                return;
+            }
+
+            if (cmd === '/mode') {
+                if (sub === 'god') {
+                    godMode = true;
+                    msgEl.innerText = "Режим бога АКТИВИРОВАН!";
+                    document.getElementById('cheat-input').value = '';
+                    return;
+                } else if (sub === 'deaktive') {
+                    godMode = false;
+                    msgEl.innerText = "Режим бога ОТКЛЮЧЕН!";
+                    document.getElementById('cheat-input').value = '';
+                    return;
+                }
+            }
+
+            let target = playerName;
+            let valIdx = 2;
+
+            if (parts.length >= 3 && isNaN(parseInt(parts[2]))) {
+                target = parts[2];
+                valIdx = 3;
+            } else {
+                valIdx = 2;
+            }
+
+            let profileKey = `snake_profile_${target}`;
+            let pData = JSON.parse(localStorage.getItem(profileKey) || '{"money":0,"level":1,"currentSkin":0,"unlockedSkins":{0:true}}');
+            const numVal = parseInt(parts[valIdx]);
+
+            if (cmd === '/give' && sub === 'money' && !isNaN(numVal)) {
+                pData.money += numVal;
+                localStorage.setItem(profileKey, JSON.stringify(pData));
+                if (target === playerName) { money = pData.money; updateUI(); }
+                msgEl.innerText = `Игроку ${target} выдано: ${numVal} 🪙`;
+                document.getElementById('cheat-input').value = '';
+            } else if (cmd === '/delete' && sub === 'money' && !isNaN(numVal)) {
+                pData.money = Math.max(0, pData.money - numVal);
+                localStorage.setItem(profileKey, JSON.stringify(pData));
+                if (target === playerName) { money = pData.money; updateUI(); }
+                msgEl.innerText = `У игрока ${target} списано: ${numVal} 🪙`;
+                document.getElementById('cheat-input').value = '';
+            } else if (cmd === '/skin' && !isNaN(parseInt(sub))) {
+                let skinIdx = parseInt(sub);
+                if (skinIdx >= 0 && skinIdx < skins.length) {
+                    pData.unlockedSkins = pData.unlockedSkins || {0: true};
+                    pData.unlockedSkins[skinIdx] = true;
+                    pData.currentSkin = skinIdx;
+                    localStorage.setItem(profileKey, JSON.stringify(pData));
+                    if (target === playerName) { unlockedSkins = pData.unlockedSkins; currentSkin = skinIdx; }
+                    msgEl.innerText = `Скин #${skinIdx} для ${target} разблокирован!`;
+                    document.getElementById('cheat-input').value = '';
+                } else {
+                    msgEl.innerText = "Неверный номер скина!";
+                }
+            } else if (cmd === '/level' && !isNaN(parseInt(sub))) {
+                let newLvl = parseInt(sub);
+                if (newLvl >= 1 && newLvl <= 200) {
+                    pData.level = newLvl;
+                    localStorage.setItem(profileKey, JSON.stringify(pData));
+                    if (target === playerName) {
+                        level = newLvl;
+                        score = 0;
+                        saveProfileData();
+                        saveGameProgress();
+                        document.getElementById('cheats-menu').classList.add('hidden');
+                        document.getElementById('cheat-input').value = '';
+                        initGame();
+                        startGameLoop();
+                    } else {
+                        msgEl.innerText = `Уровень игрока ${target} изменен на ${newLvl}`;
+                        document.getElementById('cheat-input').value = '';
+                    }
+                } else {
+                    msgEl.innerText = "Уровень от 1 до 200!";
+                }
+            } else {
+                msgEl.innerText = "Неверная команда или синтаксис!";
+            }
+            updateUI();
+        }
+    </script>
+</body>
+  </html>
