@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Doodle Jump</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #111;
+    touch-action: none;
+    user-select: none;
+    font-family: Arial, sans-serif;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  #gameOver {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 32px;
+    text-align: center;
+    display: none;
+    background: rgba(0,0,0,0.6);
+    padding: 24px 40px;
+    border-radius: 16px;
+  }
+  #gameOver small { display:block; font-size: 18px; margin-top: 12px; opacity: 0.8; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="gameOver">
+  Игра окончена<br>
+  <small>Нажми, чтобы начать заново</small>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const gameOverEl = document.getElementById('gameOver');
+
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ==== Параметры ====
+const GRAVITY = 0.6;
+const JUMP_FORCE = -18;
+const PLAYER_W = 40;
+const PLAYER_H = 50;
+
+let player;
+let platforms;
+let cameraY;
+let score;
+let bestScore = 0;
+let gameState; // 'ready' | 'playing' | 'over'
+let scoreAtDeath;
+
+function initGame() {
+  player = {
+    x: W / 2 - PLAYER_W / 2,
+    y: H - 200,
+    vx: 0,
+    vy: 0,
+    w: PLAYER_W,
+    h: PLAYER_H
+  };
+  platforms = [];
+  cameraY = 0;
+  score = 0;
+  scoreAtDeath = 0;
+
+  // Стартовая платформа
+  platforms.push({
+    x: W / 2 - 50,
+    y: H - 100,
+    w: 100,
+    h: 15
+  });
+
+  // Генерируем платформы вверх
+  let lastY = H - 100;
+  for (let i = 0; i < 20; i++) {
+    lastY -= 80 + Math.random() * 40;
+    const w = 70 + Math.random() * 50;
+    platforms.push({
+      x: Math.random() * (W - w),
+      y: lastY,
+      w: w,
+      h: 15
+    });
+  }
+}
+
+function jump() {
+  if (gameState === 'ready' || gameState === 'playing') {
+    if (player.vy >= 0 || gameState === 'ready') {
+      player.vy = JUMP_FORCE;
+      gameState = 'playing';
+    }
+  } else if (gameState === 'over') {
+    initGame();
+    gameState = 'ready';
+    gameOverEl.style.display = 'none';
+  }
+}
+
+// Ввод: клик / тач / пробел
+window.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  jump();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    jump();
+  }
+});
+
+function update() {
+  if (gameState !== 'playing') return;
+
+  // Гравитация
+  player.vy += GRAVITY;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // Горизонтальный wrap
+  if (player.x + player.w < 0) player.x = W;
+  if (player.x > W) player.x = -player.w;
+
+  // Столкновение с платформами (только при падении)
+  if (player.vy > 0) {
+    for (const p of platforms) {
+      const prevBottom = player.y + player.h - player.vy;
+      const bottom = player.y + player.h;
+      if (
+        prevBottom <= p.y &&
+        bottom >= p.y &&
+        player.x + player.w > p.x &&
+        player.x < p.x + p.w
+      ) {
+        player.y = p.y - player.h;
+        player.vy = JUMP_FORCE;
+        break;
+      }
+    }
+  }
+
+  // Камера следует за игроком, когда он поднимается выше середины
+  const targetY = player.y - H * 0.4;
+  if (targetY < cameraY) {
+    cameraY = targetY;
+  }
+
+  // Удаляем платформы ниже экрана
+  platforms = platforms.filter(p => p.y - cameraY < H + 100);
+
+  // Добавляем новые сверху
+  let minY = Infinity;
+  for (const p of platforms) if (p.y < minY) minY = p.y;
+  while (minY > cameraY - 200) {
+    minY -= 80 + Math.random() * 40;
+    const w = 70 + Math.random() * 50;
+    platforms.push({
+      x: Math.random() * (W - w),
+      y: minY,
+      w: w,
+      h: 15
+    });
+  }
+
+  // Счёт = высота подъёма
+  const newScore = Math.max(0, Math.floor((H - 200 - (player.y)) / 10));
+  if (newScore > score) score = newScore;
+
+  // Смерть: упал ниже экрана
+  if (player.y - cameraY > H + 100) {
+    gameState = 'over';
+    scoreAtDeath = score;
+    if (score > bestScore) bestScore = score;
+    gameOverEl.innerHTML = `Игра окончена<br>Счёт: ${score}<br>Рекорд: ${bestScore}<br><small>Нажми, чтобы начать заново</small>`;
+    gameOverEl.style.display = 'block';
+  }
+}
+
+function draw() {
+  // Фон — градиент
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#1e3c72');
+  grad.addColorStop(1, '#2a5298');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(0, -cameraY);
+
+  // Платформы
+  for (const p of platforms) {
+    ctx.fillStyle = '#7bd77b';
+    ctx.shadowColor = '#3fa63f';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.roundRect(p.x, p.y, p.w, p.h, 8);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Блик
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    ctx.roundRect(p.x + 4, p.y + 2, p.w - 8, 4, 2);
+    ctx.fill();
+  }
+
+  // Игрок — милый персонаж
+  ctx.save();
+  ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+
+  // Тело
+  ctx.fillStyle = '#ffcc4d';
+  ctx.shadowColor = '#d99a00';
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.roundRect(-player.w / 2, -player.h / 2, player.w, player.h, 12);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Глаза
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.arc(-8, -8, 4, 0, Math.PI * 2);
+  ctx.arc(8, -8, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Зрачки
+  ctx.fillStyle = 'white';
+  ctx.beginPath();
+  ctx.arc(-7, -9, 1.5, 0, Math.PI * 2);
+  ctx.arc(9, -9, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Улыбка
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 4, 10, 0.1 * Math.PI, 0.9 * Math.PI);
+  ctx.stroke();
+
+  ctx.restore();
+
+  ctx.restore();
+
+  // HUD
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 28px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('Счёт: ' + score, 20, 40);
+  ctx.font = '18px Arial';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillText('Рекорд: ' + bestScore, 20, 68);
+
+  if (gameState === 'ready') {
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = 'bold 26px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Нажми, чтобы прыгнуть', W / 2, H / 2);
+    ctx.font = '16px Arial';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('Управляй кликом, наклоняй — не обязательно 😉', W / 2, H / 2 + 30);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// Полифилл roundRect на всякий случай
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    this.beginPath();
+    this.moveTo(x + r, y);
+    this.arcTo(x + w, y, x + w, y + h, r);
+    this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r);
+    this.arcTo(x, y, x + w, y, r);
+    this.closePath();
+    return this;
+  };
+}
+
+// Автоповорот под горизонталь, если возможно
+if (screen.orientation && screen.orientation.lock) {
+  screen.orientation.lock('landscape').catch(() => {});
+}
+
+initGame();
+gameState = 'ready';
+loop();
+</script>
+</body>
+  </html>
