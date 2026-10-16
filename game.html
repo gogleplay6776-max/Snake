@@ -1,0 +1,520 @@
+```html
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doodle Jump - Main Menu</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Handwriting style for paper aesthetic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+
+    <style>
+        /* CSS Notebook Grid Background */
+        body {
+            font-family: 'Caveat', cursive;
+            background-color: #f7f5f0;
+            background-image: 
+                linear-gradient(#e1dcd0 1px, transparent 1px),
+                linear-gradient(90deg, #e1dcd0 1px, transparent 1px);
+            background-size: 20px 20px;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        /* Red Handwriting Title Style */
+        .doodle-title {
+            font-family: 'Permanent Marker', cursive;
+            color: #d32f2f;
+            text-shadow: 2px 2px 0px #ffcdd2;
+        }
+
+        /* Hand-drawn Button Effect */
+        .doodle-btn {
+            border: 3px solid #222;
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+            box-shadow: 3px 4px 0px #222;
+            transition: all 0.15s ease-in-out;
+            background-color: #fffdf5;
+        }
+
+        .doodle-btn:hover {
+            transform: scale(1.04) rotate(-1deg);
+            box-shadow: 5px 6px 0px #222;
+        }
+
+        .doodle-btn:active {
+            transform: scale(0.97) rotate(1deg);
+            box-shadow: 1px 2px 0px #222;
+        }
+
+        /* Custom Scrollbar for Modals */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        /* Rainbow Skin Dynamic Animation */
+        @keyframes rainbowAnim {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .rainbow-skin-bg {
+            background: linear-gradient(270deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff);
+            background-size: 400% 400%;
+            animation: rainbowAnim 3s ease infinite;
+        }
+
+        /* Modal backdrop effect */
+        .modal-bg {
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(2px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-4 relative text-gray-800">
+
+    <!-- TOP BAR: Doodly Coins & Level Indicator -->
+    <header class="w-full max-w-md flex justify-between items-center py-2 px-4 z-10">
+        <!-- Coins Container -->
+        <div class="flex items-center gap-2 bg-white/80 border-2 border-black rounded-full px-4 py-1 shadow-[2px_2px_0px_#000]">
+            <span class="text-2xl">🪙</span>
+            <span id="coins-display" class="text-2xl font-bold tracking-wide">0</span>
+            <span class="text-sm font-bold text-gray-500">Coins</span>
+        </div>
+
+        <!-- Current Level Indicator -->
+        <div class="flex items-center gap-1 bg-white/80 border-2 border-black rounded-full px-4 py-1 shadow-[2px_2px_0px_#000]">
+            <span class="text-xl font-bold">LVL:</span>
+            <span id="current-level-display" class="text-2xl font-bold text-red-600">1</span>
+        </div>
+    </header>
+
+    <!-- MAIN MENU SCREEN -->
+    <main class="w-full max-w-md flex flex-col items-center justify-center my-auto z-10 text-center">
+        <!-- Title -->
+        <h1 class="doodle-title text-6xl md:text-7xl mb-6 tracking-wide transform -rotate-2">
+            doodle jump
+        </h1>
+
+        <!-- Doodler Preview & Ufo Decoration -->
+        <div class="relative w-full h-44 my-2 flex justify-center items-center">
+            <!-- Flying Saucer -->
+            <svg class="absolute top-0 right-8 w-16 h-16 animate-bounce" viewBox="0 0 100 60">
+                <ellipse cx="50" cy="30" rx="40" ry="12" fill="#78909c" stroke="#000" stroke-width="3"/>
+                <path d="M 30 28 Q 50 5 70 28 Z" fill="#b2ebf2" stroke="#000" stroke-width="3"/>
+                <ellipse cx="50" cy="32" rx="20" ry="5" fill="#455a64"/>
+            </svg>
+
+            <!-- Active Skin Character Preview -->
+            <div id="character-preview" class="w-24 h-24 relative transform hover:scale-110 transition-transform cursor-pointer">
+                <!-- SVG injected via JS -->
+            </div>
+        </div>
+
+        <!-- Main Buttons (Play, Skins, Levels) -->
+        <div class="w-64 flex flex-col gap-4 mt-4">
+            <!-- PLAY BUTTON -->
+            <button id="btn-play" class="doodle-btn py-3 px-6 text-4xl font-bold text-green-700 tracking-wider">
+                PLAY
+            </button>
+
+            <!-- SKINS BUTTON -->
+            <button id="btn-skins" class="doodle-btn py-3 px-6 text-3xl font-bold text-blue-700 tracking-wider">
+                SKINS
+            </button>
+
+            <!-- SELECT LEVEL BUTTON -->
+            <button id="btn-levels" class="doodle-btn py-2 px-6 text-2xl font-bold text-amber-700 tracking-wider">
+                LEVELS (1-100)
+            </button>
+        </div>
+    </main>
+
+    <!-- FOOTER INFO / DEV CONSOLE TRIGGER -->
+    <footer class="w-full max-w-md flex justify-between items-center text-xs text-gray-500 py-2 z-10">
+        <span>Hand-drawn paper edition</span>
+        <button id="btn-console-toggle" class="hover:underline font-mono text-gray-600 bg-white/50 px-2 py-1 rounded border border-gray-300">
+            [~] Console
+        </button>
+    </footer>
+
+    <!-- SKINS MODAL -->
+    <div id="modal-skins" class="fixed inset-0 modal-bg z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#fffdf5] border-4 border-black rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col p-4 shadow-[8px_8px_0px_rgba(0,0,0,0.8)] relative">
+            
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center border-b-2 border-black pb-2 mb-4">
+                <h2 class="text-4xl font-bold text-gray-800 tracking-wide">Doodler Skins</h2>
+                <button id="btn-close-skins" class="text-3xl font-bold px-3 py-1 border-2 border-black rounded-lg hover:bg-red-200">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Skins Grid -->
+            <div id="skins-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto p-1">
+                <!-- Skins dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- LEVEL SELECTOR MODAL -->
+    <div id="modal-levels" class="fixed inset-0 modal-bg z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#fffdf5] border-4 border-black rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col p-4 shadow-[8px_8px_0px_rgba(0,0,0,0.8)] relative">
+            
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center border-b-2 border-black pb-2 mb-4">
+                <h2 class="text-4xl font-bold text-amber-800 tracking-wide">Select Level</h2>
+                <button id="btn-close-levels" class="text-3xl font-bold px-3 py-1 border-2 border-black rounded-lg hover:bg-red-200">
+                    ✕
+                </button>
+            </div>
+
+            <!-- 100 Levels Grid -->
+            <div id="levels-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-2 overflow-y-auto p-1">
+                <!-- 100 levels inserted via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- DEVELOPER CONSOLE MODAL -->
+    <div id="modal-console" class="fixed inset-0 modal-bg z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-gray-900 text-green-400 font-mono border-4 border-black rounded-xl w-full max-w-md p-4 shadow-2xl relative">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-2 mb-2">
+                <span class="text-sm font-bold text-gray-300">Developer Console</span>
+                <button id="btn-close-console" class="text-gray-400 hover:text-white font-bold px-2">✕</button>
+            </div>
+            
+            <!-- Output Log -->
+            <div id="console-log" class="h-40 overflow-y-auto text-xs space-y-1 mb-2 p-2 bg-black/50 rounded border border-gray-800">
+                <p class="text-gray-400">Type /help or use cheat commands:</p>
+                <p class="text-yellow-400">/give money [num]</p>
+                <p class="text-yellow-400">/delete money [num]</p>
+                <p class="text-yellow-400">/level [1-100]</p>
+                <p class="text-yellow-400">/skin [1-16]</p>
+            </div>
+
+            <!-- Command Input -->
+            <form id="console-form" class="flex gap-2">
+                <input id="console-input" type="text" placeholder="/give money 1000" class="flex-1 bg-black text-green-400 border border-gray-700 rounded px-2 py-1 text-sm outline-none focus:border-green-500">
+                <button type="submit" class="bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded text-sm font-bold">SEND</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- SYSTEM MESSAGE BOX (No alert) -->
+    <div id="msg-box" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-black text-white px-6 py-2 rounded-full border-2 border-white shadow-xl z-50 hidden text-xl">
+        <span id="msg-text">Message</span>
+    </div>
+
+    <!-- JAVASCRIPT GAME LOGIC & STATE MANAGEMENT -->
+    <script>
+        // GLOBAL GAME STATE
+        const gameState = {
+            coins: parseInt(localStorage.getItem('doodly_coins')) || 0,
+            currentLevel: parseInt(localStorage.getItem('doodly_level')) || 1,
+            selectedSkin: parseInt(localStorage.getItem('doodly_skin')) || 1,
+            unlockedSkins: JSON.parse(localStorage.getItem('doodly_unlocked_skins')) || [1]
+        };
+
+        // 16 SKINS DEFINITION & METADATA
+        const SKINS_DATA = [
+            { id: 1, name: "Classic", price: 0, color: "#88C057", stroke: "#000" },
+            { id: 2, name: "Ninja", price: 150, color: "#222222", stroke: "#E74C3C" },
+            { id: 3, name: "Bunny", price: 300, color: "#FFFFFF", stroke: "#FFA3B1" },
+            { id: 4, name: "Santa", price: 500, color: "#E74C3C", stroke: "#FFFFFF" },
+            { id: 5, name: "Alien", price: 800, color: "#39FF14", stroke: "#000" },
+            { id: 6, name: "Superhero", price: 1200, color: "#3498DB", stroke: "#E74C3C" },
+            { id: 7, name: "Zombie", price: 1600, color: "#556B2F", stroke: "#000" },
+            { id: 8, name: "Pirate", price: 2000, color: "#5D4037", stroke: "#C0392B" },
+            { id: 9, name: "Astronaut", price: 2800, color: "#ECF0F1", stroke: "#F39C12" },
+            { id: 10, name: "Ghost", price: 3500, color: "#E0F7FA", stroke: "#000" },
+            { id: 11, name: "Cyberpunk", price: 4500, color: "#9B59B6", stroke: "#00FFFF" },
+            { id: 12, name: "Demon", price: 5500, color: "#900C3F", stroke: "#1C2833" },
+            { id: 13, name: "Ice / Snow", price: 7000, color: "#00E5FF", stroke: "#FFFFFF" },
+            { id: 14, name: "Vampire", price: 8500, color: "#4A148C", stroke: "#B71C1C" },
+            { id: 15, name: "Golden", price: 10000, color: "#FFD700", stroke: "#B8860B" },
+            { id: 16, name: "Rainbow", price: 15000, isRainbow: true, color: "#FF0000", stroke: "#000" }
+        ];
+
+        // SAVE STATE HELPER
+        function saveGameState() {
+            localStorage.setItem('doodly_coins', gameState.coins);
+            localStorage.setItem('doodly_level', gameState.currentLevel);
+            localStorage.setItem('doodly_skin', gameState.selectedSkin);
+            localStorage.setItem('doodly_unlocked_skins', JSON.stringify(gameState.unlockedSkins));
+            updateUI();
+        }
+
+        // SHOW SYSTEM NOTIFICATION
+        function showMessage(text) {
+            const box = document.getElementById('msg-box');
+            const msgText = document.getElementById('msg-text');
+            msgText.innerText = text;
+            box.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.add('hidden');
+            }, 2000);
+        }
+
+        // GENERATE DOODLER SVG VECTOR
+        function getDoodlerSVG(skin) {
+            const isRainbow = skin.isRainbow;
+            const bodyColor = skin.color;
+            const strokeColor = skin.stroke;
+
+            return `
+                <svg viewBox="0 0 100 100" class="w-full h-full overflow-visible">
+                    <!-- Legs -->
+                    <rect x="30" y="70" width="8" height="20" rx="4" fill="${bodyColor}" stroke="#000" stroke-width="3" />
+                    <rect x="44" y="70" width="8" height="20" rx="4" fill="${bodyColor}" stroke="#000" stroke-width="3" />
+                    <rect x="58" y="70" width="8" height="20" rx="4" fill="${bodyColor}" stroke="#000" stroke-width="3" />
+                    <rect x="72" y="70" width="8" height="20" rx="4" fill="${bodyColor}" stroke="#000" stroke-width="3" />
+
+                    <!-- Main Body -->
+                    <ellipse cx="50" cy="45" rx="35" ry="32" 
+                        fill="${isRainbow ? 'url(#rainbow-grad)' : bodyColor}" 
+                        stroke="${strokeColor}" stroke-width="4" 
+                        class="${isRainbow ? 'rainbow-skin-bg' : ''}" />
+
+                    <!-- Snout / Trunk -->
+                    <path d="M 75 45 Q 95 45 95 52 Q 95 58 75 58 Z" 
+                        fill="${isRainbow ? 'url(#rainbow-grad)' : bodyColor}" 
+                        stroke="#000" stroke-width="3" />
+
+                    <!-- Eyes -->
+                    <circle cx="60" cy="30" r="6" fill="#FFF" stroke="#000" stroke-width="2"/>
+                    <circle cx="62" cy="30" r="2.5" fill="#000"/>
+
+                    <circle cx="42" cy="30" r="6" fill="#FFF" stroke="#000" stroke-width="2"/>
+                    <circle cx="44" cy="30" r="2.5" fill="#000"/>
+
+                    ${skin.id === 2 ? '<path d="M 15 28 L 85 28" stroke="#E74C3C" stroke-width="8"/>' : ''}
+                    ${skin.id === 4 ? '<polygon points="30,15 70,15 50,0" fill="#E74C3C" stroke="#000" stroke-width="2"/>' : ''}
+                    ${skin.id === 12 ? '<polygon points="35,18 25,2 45,12" fill="#000"/><polygon points="65,18 75,2 55,12" fill="#000"/>' : ''}
+                    ${skin.id === 15 ? '<polygon points="35,15 42,2 50,15 58,2 65,15" fill="#FFD700" stroke="#000" stroke-width="2"/>' : ''}
+
+                    <defs>
+                        <linearGradient id="rainbow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#ff0000" />
+                            <stop offset="20%" stop-color="#ff7f00" />
+                            <stop offset="40%" stop-color="#ffff00" />
+                            <stop offset="60%" stop-color="#00ff00" />
+                            <stop offset="80%" stop-color="#0000ff" />
+                            <stop offset="100%" stop-color="#8b00ff" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            `;
+        }
+
+        // UPDATE UI ELEMENTS
+        function updateUI() {
+            document.getElementById('coins-display').innerText = gameState.coins;
+            document.getElementById('current-level-display').innerText = gameState.currentLevel;
+
+            // Render Preview Character
+            const currentSkinObj = SKINS_DATA.find(s => s.id === gameState.selectedSkin) || SKINS_DATA[0];
+            document.getElementById('character-preview').innerHTML = getDoodlerSVG(currentSkinObj);
+        }
+
+        // RENDER SKINS MODAL GRID
+        function renderSkinsGrid() {
+            const grid = document.getElementById('skins-grid');
+            grid.innerHTML = '';
+
+            SKINS_DATA.forEach(skin => {
+                const isUnlocked = gameState.unlockedSkins.includes(skin.id);
+                const isSelected = gameState.selectedSkin === skin.id;
+
+                const card = document.createElement('div');
+                card.className = `border-2 border-black rounded-xl p-2 flex flex-col items-center justify-between bg-white relative shadow-[3px_3px_0px_#000] ${isSelected ? 'ring-4 ring-green-500 bg-green-50' : ''}`;
+
+                card.innerHTML = `
+                    <div class="text-lg font-bold truncate w-full text-center">${skin.id}. ${skin.name}</div>
+                    <div class="w-16 h-16 my-1">
+                        ${getDoodlerSVG(skin)}
+                    </div>
+                    ${isSelected ? `
+                        <span class="bg-green-600 text-white font-bold text-xs px-3 py-1 rounded-full border border-black">EQUIPPED</span>
+                    ` : isUnlocked ? `
+                        <button onclick="selectSkin(${skin.id})" class="bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs px-3 py-1 rounded-full border border-black">EQUIP</button>
+                    ` : `
+                        <button onclick="buySkin(${skin.id})" class="bg-amber-400 hover:bg-amber-500 text-black font-bold text-xs px-2 py-1 rounded-full border border-black flex items-center gap-1">
+                            🪙 ${skin.price}
+                        </button>
+                    `}
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // SKIN ACTIONS
+        window.selectSkin = function(id) {
+            gameState.selectedSkin = id;
+            saveGameState();
+            renderSkinsGrid();
+            showMessage(`Skin equipped!`);
+        };
+
+        window.buySkin = function(id) {
+            const skin = SKINS_DATA.find(s => s.id === id);
+            if (!skin) return;
+
+            if (gameState.coins >= skin.price) {
+                gameState.coins -= skin.price;
+                gameState.unlockedSkins.push(id);
+                gameState.selectedSkin = id;
+                saveGameState();
+                renderSkinsGrid();
+                showMessage(`Bought ${skin.name}!`);
+            } else {
+                showMessage(`Not enough coins! Need 🪙 ${skin.price}`);
+            }
+        };
+
+        // RENDER 100 LEVELS GRID
+        function renderLevelsGrid() {
+            const grid = document.getElementById('levels-grid');
+            grid.innerHTML = '';
+
+            for (let i = 1; i <= 100; i++) {
+                const btn = document.createElement('button');
+                const isCurrent = gameState.currentLevel === i;
+                btn.className = `p-2 font-bold text-lg rounded-lg border-2 border-black shadow-[2px_2px_0px_#000] transition-all ${
+                    isCurrent ? 'bg-red-500 text-white scale-105' : 'bg-white hover:bg-amber-100 text-gray-800'
+                }`;
+                btn.innerText = i;
+                btn.onclick = () => {
+                    gameState.currentLevel = i;
+                    saveGameState();
+                    renderLevelsGrid();
+                    document.getElementById('modal-levels').classList.add('hidden');
+                    showMessage(`Level ${i} selected!`);
+                };
+                grid.appendChild(btn);
+            }
+        }
+
+        // DEVELOPER CONSOLE COMMAND PARSER
+        function executeConsoleCommand(cmd) {
+            const log = document.getElementById('console-log');
+            const appendLog = (txt, color = 'text-green-400') => {
+                const p = document.createElement('p');
+                p.className = color;
+                p.innerText = `> ${txt}`;
+                log.appendChild(p);
+                log.scrollTop = log.scrollHeight;
+            };
+
+            appendLog(cmd, 'text-white');
+
+            const parts = cmd.trim().split(' ');
+            const action = parts[0]?.toLowerCase();
+
+            if (action === '/give' && parts[1]?.toLowerCase() === 'money') {
+                const amount = parseInt(parts[2]);
+                if (!isNaN(amount)) {
+                    gameState.coins += amount;
+                    saveGameState();
+                    appendLog(`Added ${amount} Doodly Coins. Total: ${gameState.coins}`, 'text-yellow-300');
+                } else {
+                    appendLog('Invalid amount! Usage: /give money [number]', 'text-red-400');
+                }
+            } else if (action === '/delete' && parts[1]?.toLowerCase() === 'money') {
+                const amount = parseInt(parts[2]);
+                if (!isNaN(amount)) {
+                    gameState.coins = Math.max(0, gameState.coins - amount);
+                    saveGameState();
+                    appendLog(`Subtracted ${amount} Doodly Coins. Total: ${gameState.coins}`, 'text-yellow-300');
+                } else {
+                    appendLog('Invalid amount! Usage: /delete money [number]', 'text-red-400');
+                }
+            } else if (action === '/level') {
+                const lvl = parseInt(parts[1]);
+                if (!isNaN(lvl) && lvl >= 1 && lvl <= 100) {
+                    gameState.currentLevel = lvl;
+                    saveGameState();
+                    appendLog(`Set current level to ${lvl}`, 'text-yellow-300');
+                } else {
+                    appendLog('Invalid level! Must be 1 - 100. Usage: /level [1-100]', 'text-red-400');
+                }
+            } else if (action === '/skin') {
+                const skinId = parseInt(parts[1]);
+                if (!isNaN(skinId) && skinId >= 1 && skinId <= 16) {
+                    if (!gameState.unlockedSkins.includes(skinId)) {
+                        gameState.unlockedSkins.push(skinId);
+                    }
+                    gameState.selectedSkin = skinId;
+                    saveGameState();
+                    appendLog(`Unlocked and equipped skin #${skinId} (${SKINS_DATA[skinId - 1].name})`, 'text-yellow-300');
+                } else {
+                    appendLog('Invalid skin ID! Usage: /skin [1-16]', 'text-red-400');
+                }
+            } else {
+                appendLog('Unknown command! Commands: /give money [n], /delete money [n], /level [1-100], /skin [1-16]', 'text-red-400');
+            }
+        }
+
+        // INIT EVENT LISTENERS
+        window.onload = function() {
+            updateUI();
+
+            // Play Button
+            document.getElementById('btn-play').onclick = () => {
+                showMessage(`Starting Level ${gameState.currentLevel}...`);
+                // Engine trigger goes here later
+            };
+
+            // Skins Modal Toggles
+            document.getElementById('btn-skins').onclick = () => {
+                renderSkinsGrid();
+                document.getElementById('modal-skins').classList.remove('hidden');
+            };
+            document.getElementById('btn-close-skins').onclick = () => {
+                document.getElementById('modal-skins').classList.add('hidden');
+            };
+
+            // Levels Modal Toggles
+            document.getElementById('btn-levels').onclick = () => {
+                renderLevelsGrid();
+                document.getElementById('modal-levels').classList.remove('hidden');
+            };
+            document.getElementById('btn-close-levels').onclick = () => {
+                document.getElementById('modal-levels').classList.add('hidden');
+            };
+
+            // Console Modal Toggles
+            document.getElementById('btn-console-toggle').onclick = () => {
+                document.getElementById('modal-console').classList.remove('hidden');
+            };
+            document.getElementById('btn-close-console').onclick = () => {
+                document.getElementById('modal-console').classList.add('hidden');
+            };
+
+            // Console Submit Form
+            document.getElementById('console-form').onsubmit = (e) => {
+                e.preventDefault();
+                const input = document.getElementById('console-input');
+                if (input.value.trim()) {
+                    executeConsoleCommand(input.value.trim());
+                    input.value = '';
+                }
+            };
+        };
+    </script>
+</body>
+</html>
+```
